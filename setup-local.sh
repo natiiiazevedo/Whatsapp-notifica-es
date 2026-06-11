@@ -18,7 +18,7 @@ echo -e "${B}[1/5] Verificando pré-requisitos...${N}"
 ok() { echo -e "  ${G}✓${N} $1"; }
 fail() { echo -e "  ${R}✗ $1${N}"; echo -e "${R}Instale antes de continuar.${N}"; exit 1; }
 
-command -v docker &>/dev/null && ok "Docker $(docker --version | grep -oP '\d+\.\d+\.\d+' | head -1)" || fail "Docker não encontrado → https://docs.docker.com/get-docker/"
+command -v docker &>/dev/null && ok "Docker $(docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)" || fail "Docker não encontrado → https://docs.docker.com/get-docker/"
 command -v node &>/dev/null && ok "Node.js $(node -v)" || fail "Node.js não encontrado → https://nodejs.org (versão 18+)"
 command -v pnpm &>/dev/null && ok "pnpm $(pnpm -v)" || {
   echo -e "  ${Y}⚠ pnpm não encontrado — instalando...${N}"
@@ -44,9 +44,13 @@ else
 
   [ -z "$JWT" ] && JWT=$(openssl rand -hex 32 2>/dev/null || node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 
-  sed -i "s|ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=${ANT}|" .env
-  [ -n "$OAI" ] && sed -i "s|OPENAI_API_KEY=.*|OPENAI_API_KEY=${OAI}|" .env
-  sed -i "s|JWT_SECRET=.*|JWT_SECRET=${JWT}|" .env
+  # sed -i '' para macOS (BSD), sed -i para Linux (GNU)
+  SED_INPLACE=(sed -i '')
+  uname | grep -q Linux && SED_INPLACE=(sed -i)
+
+  "${SED_INPLACE[@]}" "s|ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=${ANT}|" .env
+  [ -n "$OAI" ] && "${SED_INPLACE[@]}" "s|OPENAI_API_KEY=.*|OPENAI_API_KEY=${OAI}|" .env
+  "${SED_INPLACE[@]}" "s|JWT_SECRET=.*|JWT_SECRET=${JWT}|" .env
 
   echo -e "\n  ${G}✓${N} .env configurado"
 fi
