@@ -1,5 +1,9 @@
 version: '3.9'
 
+# Infraestrutura local — Postgres (com pgvector) + Redis
+# Para iniciar: docker-compose up -d
+# Para o app: pnpm install && pnpm dev
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -30,8 +34,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # WhatsApp — opcional, só se for usar integração WhatsApp
   evolution-api:
     image: atendai/evolution-api:latest
+    profiles: ['whatsapp']
     ports:
       - '8080:8080'
     environment:
@@ -47,33 +53,6 @@ services:
       - redis
     volumes:
       - evolution_data:/evolution/instances
-
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    ports:
-      - '3001:3001'
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./apps/api:/app/apps/api
-    command: pnpm --filter api dev
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    ports:
-      - '3000:3000'
-    env_file: .env
-    depends_on:
-      - api
-    command: pnpm --filter web dev
 
 volumes:
   postgres_data:

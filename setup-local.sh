@@ -1,126 +1,114 @@
 #!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────────
+#  Sales Platform — Setup Local
+#  Pré-requisitos: Docker Desktop, Node.js 18+, pnpm 8+
+# ──────────────────────────────────────────────────────────────
 set -e
+G='\033[0;32m'; B='\033[0;34m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
 
-GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+echo -e "${B}"
+echo "╔══════════════════════════════════════════╗"
+echo "║   Sales Platform — Setup Local  v1.0     ║"
+echo "╚══════════════════════════════════════════╝"
+echo -e "${N}"
 
-echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   Sales Platform — Setup Local           ║${NC}"
-echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}\n"
+# ─── 1. Verifica pré-requisitos ──────────────────────────────
+echo -e "${B}[1/5] Verificando pré-requisitos...${N}"
 
-# ─── Verifica pré-requisitos ─────────────────────────────────
-check() {
-  command -v "$1" &>/dev/null || { echo -e "${RED}✗ $1 não encontrado. Instale antes de continuar.${NC}"; exit 1; }
-  echo -e "${GREEN}✓ $1${NC}"
+ok() { echo -e "  ${G}✓${N} $1"; }
+fail() { echo -e "  ${R}✗ $1${N}"; echo -e "${R}Instale antes de continuar.${N}"; exit 1; }
+
+command -v docker &>/dev/null && ok "Docker $(docker --version | grep -oP '\d+\.\d+\.\d+' | head -1)" || fail "Docker não encontrado → https://docs.docker.com/get-docker/"
+command -v node &>/dev/null && ok "Node.js $(node -v)" || fail "Node.js não encontrado → https://nodejs.org (versão 18+)"
+command -v pnpm &>/dev/null && ok "pnpm $(pnpm -v)" || {
+  echo -e "  ${Y}⚠ pnpm não encontrado — instalando...${N}"
+  npm install -g pnpm@9
+  ok "pnpm instalado"
 }
 
-echo "Verificando dependências..."
-check docker
-check "docker-compose"
-check node
-check pnpm
-echo ""
+# ─── 2. Cria .env ────────────────────────────────────────────
+echo -e "\n${B}[2/5] Configurando variáveis de ambiente...${N}"
 
-# ─── Cria .env se não existir ────────────────────────────────
-if [ ! -f .env ]; then
-  echo -e "${YELLOW}Criando arquivo .env...${NC}"
-  read -p "🔑 Sua ANTHROPIC_API_KEY (sk-ant-...): " ANTHROPIC_KEY
-  echo ""
-  read -p "🤖 OpenAI API Key para embeddings (sk-...): " OPENAI_KEY
-  echo ""
-
-  cat > .env <<EOF
-# ─── Banco de dados ───────────────────────────────────────────
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sales_platform
-
-# ─── Redis ───────────────────────────────────────────────────
-REDIS_URL=redis://localhost:6379
-
-# ─── API de IA ───────────────────────────────────────────────
-ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
-OPENAI_API_KEY=${OPENAI_KEY}
-
-# ─── JWT ─────────────────────────────────────────────────────
-JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || echo "change-this-super-secret-key-in-production")
-
-# ─── WhatsApp (Evolution API — opcional) ─────────────────────
-EVOLUTION_API_URL=http://localhost:8080
-EVOLUTION_API_KEY=changeme
-EVOLUTION_INSTANCE=sales
-
-# ─── Bitrix24 (opcional) ─────────────────────────────────────
-BITRIX_WEBHOOK_URL=
-BITRIX_CLIENT_ID=
-BITRIX_CLIENT_SECRET=
-
-# ─── App ─────────────────────────────────────────────────────
-API_PORT=3001
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:3001
-EOF
-  echo -e "${GREEN}✓ .env criado${NC}\n"
+if [ -f .env ]; then
+  echo -e "  ${G}✓${N} .env já existe — pulando"
 else
-  echo -e "${GREEN}✓ .env já existe${NC}\n"
+  cp .env.example .env
+  echo -e "  ${Y}⚠  .env criado a partir de .env.example${N}"
+  echo ""
+  echo -e "  ${Y}Preencha agora os valores obrigatórios:${N}"
+  echo ""
+
+  read -rp "  🔑 ANTHROPIC_API_KEY (sk-ant-...): " ANT
+  read -rp "  🔑 OPENAI_API_KEY (sk-...) [Enter para pular]: " OAI
+  read -rp "  🔐 JWT_SECRET [Enter para gerar automático]: " JWT
+
+  [ -z "$JWT" ] && JWT=$(openssl rand -hex 32 2>/dev/null || node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+
+  sed -i "s|ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=${ANT}|" .env
+  [ -n "$OAI" ] && sed -i "s|OPENAI_API_KEY=.*|OPENAI_API_KEY=${OAI}|" .env
+  sed -i "s|JWT_SECRET=.*|JWT_SECRET=${JWT}|" .env
+
+  echo -e "\n  ${G}✓${N} .env configurado"
 fi
 
-# ─── Instala dependências ────────────────────────────────────
-echo -e "${BLUE}Instalando dependências (pnpm install)...${NC}"
+# ─── 3. Instala dependências ─────────────────────────────────
+echo -e "\n${B}[3/5] Instalando dependências (pnpm install)...${N}"
 pnpm install
-echo ""
+echo -e "  ${G}✓${N} Dependências instaladas"
 
-# ─── Sobe postgres + redis ───────────────────────────────────
-echo -e "${BLUE}Iniciando PostgreSQL + Redis via Docker...${NC}"
+# ─── 4. Sobe infraestrutura Docker ──────────────────────────
+echo -e "\n${B}[4/5] Iniciando PostgreSQL + Redis (Docker)...${N}"
 docker-compose up -d postgres redis
-echo ""
 
-echo -e "${YELLOW}Aguardando banco de dados ficar pronto...${NC}"
-until docker-compose exec -T postgres pg_isready -U postgres &>/dev/null; do
+echo -ne "  Aguardando banco de dados"
+for i in $(seq 1 30); do
+  docker-compose exec -T postgres pg_isready -U postgres &>/dev/null && break
   printf '.'
   sleep 2
 done
-echo -e "\n${GREEN}✓ PostgreSQL pronto${NC}"
+echo -e "\n  ${G}✓${N} PostgreSQL pronto"
 
-# ─── Roda migrations ────────────────────────────────────────
-echo -e "${BLUE}Aplicando migrations...${NC}"
-PGPASSWORD=postgres psql -h localhost -U postgres -d sales_platform \
-  -f supabase/migrations/001_initial_schema.sql 2>/dev/null || true
-PGPASSWORD=postgres psql -h localhost -U postgres -d sales_platform \
-  -f supabase/migrations/002_tasks_kpis.sql 2>/dev/null || true
-echo -e "${GREEN}✓ Migrations aplicadas${NC}\n"
+# ─── 5. Cria usuário demo ────────────────────────────────────
+echo -e "\n${B}[5/5] Criando usuário demo...${N}"
 
-# ─── Seed (usuário demo) ─────────────────────────────────────
-echo -e "${BLUE}Criando usuário demo...${NC}"
-PGPASSWORD=postgres psql -h localhost -U postgres -d sales_platform <<'SQLEOF' 2>/dev/null || true
+PGPASSWORD=postgres psql -h localhost -U postgres -d sales_platform 2>/dev/null <<'SQL' || true
 INSERT INTO companies (id, name, plan, settings)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Demo Company', 'pro', '{}')
 ON CONFLICT DO NOTHING;
 
+-- Senha: demo123 (bcrypt hash)
 INSERT INTO users (id, company_id, email, password_hash, name, role, active, settings)
 VALUES
-  ('00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001',
-   'gestor@demo.com', '$2b$10$demo_hash_gestor', 'Gestor Demo', 'manager', true, '{}'),
-  ('00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000001',
-   'vendedor@demo.com', '$2b$10$demo_hash_vendedor', 'Vendedor Demo', 'salesperson', true, '{}')
-ON CONFLICT DO NOTHING;
-SQLEOF
-echo -e "${GREEN}✓ Usuário demo criado${NC}\n"
+  (gen_random_uuid(), '00000000-0000-0000-0000-000000000001',
+   'gestor@demo.com',
+   '$2b$10$K7L1OIAo5ZzMNSMHn7mJueINi01fhL5naTYQpgGMCOvpOLF2sM4xG',
+   'Gestor Demo', 'manager', true, '{}'),
+  (gen_random_uuid(), '00000000-0000-0000-0000-000000000001',
+   'vendedor@demo.com',
+   '$2b$10$K7L1OIAo5ZzMNSMHn7mJueINi01fhL5naTYQpgGMCOvpOLF2sM4xG',
+   'Vendedor Demo', 'salesperson', true, '{}')
+ON CONFLICT (email) DO NOTHING;
+SQL
 
-# ─── Build packages ──────────────────────────────────────────
-echo -e "${BLUE}Compilando packages (shared, memory, agents, bitrix)...${NC}"
-pnpm --filter @sales/shared build 2>/dev/null || pnpm --filter @sales/shared run build || true
-pnpm --filter @sales/memory build 2>/dev/null || true
-pnpm --filter @sales/agents build 2>/dev/null || true
-echo -e "${GREEN}✓ Packages compilados${NC}\n"
+echo -e "  ${G}✓${N} Usuários demo criados"
 
-# ─── Resumo final ────────────────────────────────────────────
-echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   ✅ Setup concluído!                    ║${NC}"
-echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}\n"
-echo -e "Para iniciar a plataforma, rode em terminais separados:\n"
-echo -e "  ${YELLOW}Terminal 1:${NC} pnpm --filter api dev"
-echo -e "  ${YELLOW}Terminal 2:${NC} pnpm --filter web dev\n"
-echo -e "Ou tudo junto:"
-echo -e "  ${YELLOW}pnpm dev${NC}\n"
-echo -e "Acesse: ${GREEN}http://localhost:3000${NC}"
-echo -e "Login demo: ${GREEN}gestor@demo.com${NC} (gestor) ou ${GREEN}vendedor@demo.com${NC} (vendedor)\n"
-echo -e "🎯 ${BLUE}Agent Lab:${NC} Dashboard → menu lateral → ${YELLOW}Agent Lab${NC}\n"
+# ─── Resumo ──────────────────────────────────────────────────
+echo ""
+echo -e "${G}╔══════════════════════════════════════════╗${N}"
+echo -e "${G}║   ✅  Setup concluído!                   ║${N}"
+echo -e "${G}╚══════════════════════════════════════════╝${N}"
+echo ""
+echo -e "Para iniciar a plataforma:"
+echo ""
+echo -e "  ${Y}pnpm dev${N}              (inicia API + Web juntos)"
+echo ""
+echo -e "  ou em terminais separados:"
+echo -e "  ${Y}pnpm --filter api dev${N}  → API em http://localhost:3001"
+echo -e "  ${Y}pnpm --filter web dev${N}  → Web em http://localhost:3000"
+echo ""
+echo -e "Logins demo (senha: ${Y}demo123${N}):"
+echo -e "  ${G}gestor@demo.com${N}    → visão de gestor"
+echo -e "  ${G}vendedor@demo.com${N}  → visão de vendedor"
+echo ""
+echo -e "Agent Lab: Dashboard → menu lateral → ${B}Agent Lab${N} (ícone de rede)"
+echo ""
