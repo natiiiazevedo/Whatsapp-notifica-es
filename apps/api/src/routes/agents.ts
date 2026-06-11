@@ -7,9 +7,11 @@ export async function agentRoutes(
   fastify: FastifyInstance,
   { orchestrator }: { orchestrator: OrchestratorAgent }
 ) {
+  const AGENT_TYPES = ['orchestrator', 'feedback', 'carteira', 'deal', 'postsales', 'manager', 'gamification', 'inactivity', 'agenda'] as const;
+
   const messageSchema = z.object({
     message: z.string().min(1).max(4000),
-    agent_type: z.enum(['orchestrator', 'feedback', 'carteira', 'manager', 'gamification']).optional(),
+    agent_type: z.enum(AGENT_TYPES).optional(),
     channel: z.enum(['web', 'whatsapp', 'email']).default('web'),
     conversation_id: z.string().uuid().optional(),
   });
@@ -54,6 +56,98 @@ export async function agentRoutes(
       fastify.log.error(err);
       return reply.code(500).send({ error: 'Erro ao processar mensagem' });
     }
+  });
+
+  // POST /api/agents/chat/stream - Chat com streaming SSE (para Agent Lab)
+  fastify.post('/chat/stream', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const body = messageSchema.parse(request.body);
+    const { user } = request;
+
+    reply.raw.setHeader('Content-Type', 'text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.setHeader('X-Accel-Buffering', 'no');
+    reply.raw.flushHeaders();
+
+    const send = (data: Record<string, unknown>) => {
+      try { reply.raw.write(`data: ${JSON.stringify(data)}\n\n`); } catch { /* client disconnected */ }
+    };
+
+    const ctx: AgentContext = {
+      user_id: user.id,
+      company_id: user.company_id,
+      user_role: user.role,
+      user_name: user.name,
+      channel: body.channel,
+    };
+
+    let finalMessage = '';
+    let finalAgentType = body.agent_type ?? 'orchestrator';
+
+    try {
+      const onEvent = (event: Record<string, unknown>) => {
+        send(event);
+        if (event.type === 'done') {
+          finalMessage = event.message as string;
+          finalAgentType = (event.agent_type as string) ?? finalAgentType;
+        }
+      };
+
+      if (body.agent_type && body.agent_type !== 'orchestrator') {
+        const agent = orchestrator.getAgent(body.agent_type as import('@sales/shared').AgentType);
+        if (!agent) { send({ type: 'error', message: 'Agente não encontrado' }); reply.raw.end(); return reply; }
+        await agent.runWithEvents(body.message, ctx, onEvent as Parameters<typeof agent.runWithEvents>[2]);
+      } else {
+        await orchestrator.routeWithEvents(body.message, ctx, onEvent as Parameters<typeof orchestrator.routeWithEvents>[2]);
+      }
+
+      if (finalMessage) {
+        await saveConversationMessage(fastify, {
+          user_id: user.id,
+          agent_type: finalAgentType as import('@sales/shared').AgentType,
+          channel: body.channel,
+          user_message: body.message,
+          agent_response: finalMessage,
+          conversation_id: body.conversation_id,
+        });
+      }
+    } catch (err) {
+      fastify.log.error(err);
+      send({ type: 'error', message: String(err) });
+    }
+
+    reply.raw.end();
+    return reply;
+  });
+
+  // GET /api/agents/status - Status e métricas dos agentes (para Agent Lab)
+  fastify.get('/status', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { user } = request;
+    const isManager = user.role !== 'salesperson';
+
+    const [convCount, insightCount] = await Promise.all([
+      fastify.db.query(
+        `SELECT COUNT(*) as total, agent_type FROM conversations
+         WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
+         GROUP BY agent_type`,
+        [user.id]
+      ),
+      fastify.db.query(
+        `SELECT COUNT(*) as total FROM insights
+         WHERE company_id = $1 AND ($2 OR user_id = $3) AND read = false`,
+        [user.company_id, isManager, user.id]
+      ),
+    ]);
+
+    return reply.send({
+      conversations_today: convCount.rows,
+      unread_insights: Number(insightCount.rows[0]?.total ?? 0),
+      agents_available: ['orchestrator', 'feedback', 'carteira', 'deal', 'postsales', 'manager', 'gamification', 'inactivity', 'agenda'],
+    });
   });
 
   // GET /api/agents/conversations - Histórico de conversas do usuário

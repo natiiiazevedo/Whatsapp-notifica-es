@@ -48,6 +48,49 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ message, agent_type: agentType, channel }),
       }),
+    chatStream: (
+      message: string,
+      agentType: string | undefined,
+      onEvent: (event: Record<string, unknown>) => void,
+      channel = 'web',
+    ): (() => void) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sales_token') : null;
+      const controller = new AbortController();
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE}/agents/chat/stream`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ message, agent_type: agentType, channel }),
+            signal: controller.signal,
+          });
+          if (!res.ok || !res.body) { onEvent({ type: 'error', message: 'Falha na conexão' }); return; }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const parts = buf.split('\n\n');
+            buf = parts.pop() ?? '';
+            for (const part of parts) {
+              const line = part.trim();
+              if (line.startsWith('data: ')) {
+                try { onEvent(JSON.parse(line.slice(6))); } catch { /* ignore */ }
+              }
+            }
+          }
+        } catch (err) {
+          if ((err as Error).name !== 'AbortError') onEvent({ type: 'error', message: String(err) });
+        }
+      })();
+      return () => controller.abort();
+    },
+    status: () => apiFetch<Record<string, unknown>>('/agents/status'),
     conversations: () => apiFetch<unknown[]>('/agents/conversations'),
     insights: () => apiFetch<unknown[]>('/agents/insights'),
     markInsightRead: (id: string) =>

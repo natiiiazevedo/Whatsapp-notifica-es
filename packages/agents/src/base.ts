@@ -10,6 +10,14 @@ export type Tool = Anthropic.Messages.Tool;
 export type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 export type MessageParam = Anthropic.Messages.MessageParam;
 
+export type AgentStreamEvent =
+  | { type: 'thinking' }
+  | { type: 'tool_call'; tool: string; agent: string }
+  | { type: 'tool_result'; tool: string; preview: string }
+  | { type: 'delta'; content: string }
+  | { type: 'done'; message: string; agent_type: AgentType }
+  | { type: 'error'; message: string };
+
 export interface AgentDeps {
   anthropic: Anthropic;
   db: Pool;
@@ -148,6 +156,100 @@ export abstract class BaseAgent {
       insights,
       actions,
     };
+  }
+
+  // ─── Streaming com eventos SSE ────────────────────────────
+  async runWithEvents(
+    userMessage: string,
+    ctx: AgentContext,
+    onEvent: (e: AgentStreamEvent) => void,
+  ): Promise<void> {
+    onEvent({ type: 'thinking' });
+
+    const history = await this.deps.memory.getConversationHistory(ctx.user_id, this.agentType);
+    const memories = await this.deps.memory.search(userMessage, {
+      user_id: ctx.user_role === 'salesperson' ? ctx.user_id : undefined,
+      company_id: ctx.company_id,
+      agent_type: this.agentType,
+      limit: 3,
+      min_similarity: 0.65,
+    });
+    const memoryContext = memories.length > 0
+      ? `\n\n**Contexto relevante:**\n${memories.map(m => `- ${m.summary ?? m.content}`).join('\n')}`
+      : '';
+
+    const messages: MessageParam[] = [
+      ...history as MessageParam[],
+      { role: 'user', content: userMessage + memoryContext },
+    ];
+
+    let fullMessage = '';
+
+    while (true) {
+      const stream = this.deps.anthropic.messages.stream({
+        model: this.model,
+        max_tokens: this.maxTokens,
+        system: this.systemPrompt(ctx),
+        tools: this.tools(ctx),
+        messages,
+      });
+
+      stream.on('text', (text: string) => {
+        fullMessage += text;
+        onEvent({ type: 'delta', content: text });
+      });
+
+      const finalMsg = await stream.finalMessage();
+
+      if (finalMsg.stop_reason !== 'tool_use') break;
+
+      const toolUses = finalMsg.content.filter(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use'
+      );
+      const toolResults: ToolResultBlockParam[] = [];
+
+      for (const toolUse of toolUses) {
+        onEvent({ type: 'tool_call', tool: toolUse.name, agent: this.agentType });
+        try {
+          const result = await this.executeTool(
+            toolUse.name,
+            toolUse.input as Record<string, unknown>,
+            ctx,
+          );
+          const preview = result.length > 180 ? result.slice(0, 180) + '…' : result;
+          onEvent({ type: 'tool_result', tool: toolUse.name, preview });
+          toolResults.push({ type: 'tool_result', tool_use_id: toolUse.id, content: result });
+        } catch (err) {
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: `Erro: ${(err as Error).message}`,
+            is_error: true,
+          });
+        }
+      }
+
+      messages.push({ role: 'assistant', content: finalMsg.content });
+      messages.push({ role: 'user', content: toolResults });
+    }
+
+    await this.deps.memory.appendConversation(ctx.user_id, this.agentType, { role: 'user', content: userMessage });
+    await this.deps.memory.appendConversation(ctx.user_id, this.agentType, { role: 'assistant', content: fullMessage });
+
+    if (fullMessage.length > 100) {
+      this.deps.memory.store({
+        user_id: ctx.user_role === 'salesperson' ? ctx.user_id : undefined,
+        company_id: ctx.company_id,
+        agent_type: this.agentType,
+        memory_type: 'insight',
+        content: `${userMessage}\n\nResposta: ${fullMessage}`,
+        summary: fullMessage.slice(0, 200),
+        importance: 0.6,
+        metadata: { channel: ctx.channel },
+      }).catch(() => {});
+    }
+
+    onEvent({ type: 'done', message: fullMessage, agent_type: this.agentType });
   }
 
   // ─── Helpers de DB ─────────────────────────────────────────

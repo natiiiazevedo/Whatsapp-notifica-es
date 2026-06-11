@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AgentContext, AgentResponse, AgentType } from '@sales/shared';
-import type { AgentDeps } from './base.js';
+import type { AgentDeps, AgentStreamEvent } from './base.js';
 import { FeedbackAgent } from './feedback.js';
 import { CarteiraAgent } from './carteira.js';
 import { ManagerAgent } from './manager.js';
@@ -80,6 +80,29 @@ Contexto: usuário é ${ctx.user_role}.`,
       return 'feedback';
     }
     return agentType;
+  }
+
+  async routeWithEvents(
+    userMessage: string,
+    ctx: AgentContext,
+    onEvent: (e: AgentStreamEvent & { type: string }) => void,
+  ): Promise<void> {
+    const routingEvent = { type: 'routing' as const };
+    onEvent(routingEvent as AgentStreamEvent & { type: string });
+
+    const agentType = await this.classify(userMessage, ctx);
+    const authorized = this.authorize(agentType, ctx);
+
+    const routedEvent = { type: 'routed' as const, agent: authorized };
+    onEvent(routedEvent as AgentStreamEvent & { type: string });
+
+    const agent = this.agents.get(authorized);
+    if (!agent) {
+      onEvent({ type: 'done', message: 'Agente não encontrado.', agent_type: 'orchestrator' });
+      return;
+    }
+
+    await agent.runWithEvents(userMessage, ctx, onEvent);
   }
 
   // Acessa um agente específico diretamente (para chamadas programáticas)

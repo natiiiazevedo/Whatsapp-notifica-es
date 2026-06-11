@@ -7,4 +7,4 @@ export { InactivityAgent } from './inactivity.js';
 export { AgendaAgent } from './agenda.js';
 export { DealAgent } from './deal.js';
 export { PostSalesAgent } from './postsales.js';
-export type { AgentDeps } from './base.js';
+export type { AgentDeps, AgentStreamEvent } from './base.js';
