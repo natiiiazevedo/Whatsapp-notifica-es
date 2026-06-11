@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Lab — Sales Platform</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #08090D;
+    --surface: #0D1117;
+    --surface2: #141821;
+    --border: #1A2035;
+    --border2: #1E2A45;
+    --text: #E2E8F0;
+    --muted: #475569;
+    --muted2: #334155;
+    --blue: #3B82F6;
+    --blue-dim: #1D4ED830;
+    --green: #22C55E;
+    --purple: #A855F7;
+    --orange: #F97316;
+    --pink: #EC4899;
+    --lblue: #60A5FA;
+    --gold: #EAB308;
+    --teal: #14B8A6;
+    --red: #EF4444;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+  * { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+
+  /* Layout */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .header-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: .5px; }
+  .header-logo span { width: 28px; height: 28px; background: var(--blue-dim); border: 1px solid #3B82F640; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .header-status { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--muted); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 5px; animation: pulse 2s infinite; }
+  .badge { background: var(--surface2); border: 1px solid var(--border2); border-radius: 20px; padding: 2px 10px; font-size: 11px; }
+
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* Graph side */
+  .graph-side { display: flex; flex-direction: column; width: 52%; border-right: 1px solid var(--border); }
+  .graph-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  svg#graph { width: 100%; max-width: 500px; overflow: visible; }
+
+  /* Info bar */
+  .agent-info { padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .agent-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .agent-info-text p:first-child { font-size: 13px; font-weight: 600; }
+  .agent-info-text p:last-child { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .agent-mode { margin-left: auto; font-size: 11px; border-radius: 20px; padding: 3px 10px; }
+
+  /* Chat side */
+  .chat-side { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+  /* Activity log */
+  .activity { background: var(--surface); border-bottom: 1px solid var(--border); overflow: hidden; transition: max-height .25s ease; }
+  .activity-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  .activity-header:hover { color: #94A3B8; }
+  .activity-list { padding: 4px 16px 10px; max-height: 120px; overflow-y: auto; }
+  .activity-item { display: flex; align-items: flex-start; gap: 8px; font-size: 11px; padding: 2px 0; }
+  .activity-icon { flex-shrink: 0; margin-top: 1px; font-size: 10px; }
+  .activity-text { color: var(--muted); flex: 1; }
+  .activity-time { color: var(--muted2); font-size: 10px; flex-shrink: 0; }
+  .activity-agent { font-weight: 600; }
+  .cnt { background: var(--surface2); border-radius: 20px; padding: 1px 7px; margin-left: 6px; font-size: 10px; color: #94A3B8; }
+
+  /* Messages */
+  .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .empty-state { margin: auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .empty-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: #3B82F610; border: 1px solid #3B82F630; }
+  .empty-title { font-size: 13px; color: #94A3B8; font-weight: 500; }
+  .empty-sub { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+  .quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 8px; }
+  .qp { font-size: 11px; border-radius: 20px; padding: 5px 12px; cursor: pointer; border: 1px solid; transition: opacity .2s; }
+  .qp:hover { opacity: .75; }
+
+  .msg { display: flex; gap: 8px; max-width: 100%; }
+  .msg.user { flex-direction: row-reverse; }
+  .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 2px; }
+  .msg-body { display: flex; flex-direction: column; max-width: 82%; }
+  .msg.user .msg-body { align-items: flex-end; }
+  .msg-label { font-size: 10px; margin-bottom: 3px; padding: 0 2px; font-weight: 600; }
+  .msg-bubble { border-radius: 14px; padding: 9px 14px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .msg.user .msg-bubble { background: var(--blue); color: #fff; border-top-right-radius: 3px; }
+  .msg.assistant .msg-bubble { background: var(--surface); border: 1px solid var(--border); color: #CBD5E1; border-top-left-radius: 3px; }
+  .cursor { display: inline-block; width: 2px; height: 13px; background: var(--blue); margin-left: 2px; vertical-align: middle; animation: blink .8s step-end infinite; }
+
+  /* Input */
+  .input-area { padding: 12px 14px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+  .input-area input { flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; padding: 9px 14px; font-size: 13px; color: var(--text); outline: none; transition: border-color .2s; }
+  .input-area input:focus { border-color: var(--blue); }
+  .input-area input::placeholder { color: var(--muted2); }
+  .send-btn { width: 36px; height: 36px; border-radius: 10px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: opacity .2s; flex-shrink: 0; }
+  .send-btn:disabled { opacity: .3; cursor: default; }
+
+  /* SVG nodes */
+  .node { cursor: pointer; }
+  .node circle, .node text { transition: all .2s; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes ping { 0%{transform:scale(1);opacity:.5} 70%,100%{transform:scale(1.5);opacity:0} }
+  @keyframes travel {
+    0% { offset-distance: 0% }
+    100% { offset-distance: 100% }
+  }
+
+  .spinning-border { animation: spin 1.5s linear infinite; transform-origin: center; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <span>⚡</span>
+      Agent Lab — Sales Platform
+    </div>
+    <div class="header-status">
+      <span><span class="dot"></span>9 agentes online</span>
+      <span class="badge" id="status-badge">Aguardando</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Graph -->
+    <div class="graph-side">
+      <div class="graph-wrap">
+        <svg id="graph" viewBox="0 0 500 430">
+          <defs>
+            <filter id="glow-blue"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="glow-soft"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <!-- Lines drawn by JS -->
+          <g id="lines"></g>
+          <!-- Nodes drawn by JS -->
+          <g id="nodes"></g>
+        </svg>
+      </div>
+
+      <!-- Selected agent info -->
+      <div class="agent-info">
+        <div class="agent-icon" id="sel-icon">⚡</div>
+        <div class="agent-info-text">
+          <p id="sel-label" style="color:var(--blue)">Orquestrador</p>
+          <p id="sel-desc">Roteador inteligente — distribui para o agente certo</p>
+        </div>
+        <div class="agent-mode badge" id="sel-mode" style="color:var(--blue);border-color:#3B82F630;background:#3B82F610">Auto-roteamento</div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-side">
+      <!-- Activity log -->
+      <div class="activity" id="activity-panel" style="max-height:160px">
+        <div class="activity-header" onclick="toggleActivity()">
+          <span>📡 Log de atividade <span class="cnt" id="act-cnt">0</span></span>
+          <span id="act-chevron">▾</span>
+        </div>
+        <div class="activity-list" id="activity-list">
+          <div class="activity-item"><span class="activity-icon" style="color:#334155">·</span><span class="activity-text" style="color:var(--muted2)">Nenhuma atividade ainda. Inicie uma conversa.</span></div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages" id="messages">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">⚡</div>
+          <div>
+            <p class="empty-title">Selecione um agente e comece</p>
+            <p class="empty-sub">Clique em um nó do grafo ou use os atalhos abaixo</p>
+          </div>
+          <div class="quick-prompts" id="quick-prompts"></div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="input-area">
+        <input type="text" id="chat-input" placeholder="Falar com Orquestrador…" />
+        <button class="send-btn" id="send-btn" style="background:var(--blue)" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Agent config ────────────────────────────────────────────
+const AGENTS = {
+  orchestrator: { label:'Orquestrador', icon:'⚡', color:'#3B82F6', desc:'Roteador inteligente — distribui para o agente certo', mode:'Auto-roteamento' },
+  feedback:     { label:'Coach 1:1',    icon:'🎯', color:'#A855F7', desc:'Feedback pessoal e análise de desempenho individual', mode:'Direto' },
+  carteira:     { label:'Carteira',     icon:'💼', color:'#22C55E', desc:'Portfólio de clientes e priorização de contatos', mode:'Direto' },
+  deal:         { label:'Deal Intel',   icon:'🔍', color:'#F97316', desc:'Health score e análise cirúrgica de negócios', mode:'Direto' },
+  postsales:    { label:'Pós-Vendas',   icon:'🤝', color:'#EC4899', desc:'Churn risk, upsell e reativação de clientes', mode:'Direto' },
+  manager:      { label:'Gestão',       icon:'📊', color:'#60A5FA', desc:'Visão consolidada da equipe e forecast', mode:'Direto' },
+  gamification: { label:'Gamificação',  icon:'🏆', color:'#EAB308', desc:'Rankings, XP, conquistas e motivação', mode:'Direto' },
+  inactivity:   { label:'Monitor',      icon:'🚨', color:'#EF4444', desc:'Alertas automáticos de inatividade', mode:'Direto' },
+  agenda:       { label:'Agenda',       icon:'📅', color:'#14B8A6', desc:'Tarefas, KPIs do dia e produtividade', mode:'Direto' },
+};
+
+const SPOKES = ['agenda','feedback','deal','postsales','gamification','inactivity','carteira','manager'];
+const CX=250, CY=208, R=162;
+
+function pos(key) {
+  if (key === 'orchestrator') return {x:CX, y:CY};
+  const idx = SPOKES.indexOf(key);
+  const angle = (idx / SPOKES.length) * Math.PI * 2 - Math.PI/2;
+  return { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) };
+}
+
+// ─── State ───────────────────────────────────────────────────
+let selected = 'orchestrator';
+let active = null;
+let isStreaming = false;
+let activityItems = [];
+let activityOpen = true;
+let msgIdCounter = 0;
+
+// ─── Build SVG ───────────────────────────────────────────────
+function buildGraph() {
+  const linesG = document.getElementById('lines');
+  const nodesG = document.getElementById('nodes');
+  linesG.innerHTML = '';
+  nodesG.innerHTML = '';
+
+  // Defs for gradients
+  const svg = document.getElementById('graph');
+  let defs = svg.querySelector('defs');
+
+  SPOKES.forEach(key => {
+    const cfg = AGENTS[key];
+    const p = pos(key);
+    const oc = pos('orchestrator');
+
+    // Gradient
+    const grad = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+    grad.id = `lg-${key}`;
+    grad.setAttribute('x1', oc.x); grad.setAttribute('y1', oc.y);
+    grad.setAttribute('x2', p.x);  grad.setAttribute('y2', p.y);
+    grad.setAttribute('gradientUnits','userSpaceOnUse');
+    const s1 = document.createElementNS('http://www.w3.org/2000/svg','stop');
+    s1.setAttribute('offset','0%'); s1.setAttribute('stop-color','#3B82F6'); s1.setAttribute('stop-opacity','0.3');
+    const s2 = document.createElementNS('http://www.w3.org/2000/svg','stop');
+    s2.setAttribute('offset','100%'); s2.setAttribute('stop-color', cfg.color); s2.setAttribute('stop-opacity','0.3');
+    grad.appendChild(s1); grad.appendChild(s2);
+    defs.appendChild(grad);
+
+    // Path (for animateMotion)
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.id = `p-${key}`;
+    path.setAttribute('d', `M${oc.x},${oc.y} L${p.x},${p.y}`);
+    path.setAttribute('fill','none'); path.setAttribute('stroke','none');
+    linesG.appendChild(path);
+
+    // Line
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.id = `line-${key}`;
+    line.setAttribute('x1',oc.x); line.setAttribute('y1',oc.y);
+    line.setAttribute('x2',p.x);  line.setAttribute('y2',p.y);
+    line.setAttribute('stroke',`url(#lg-${key})`);
+    line.setAttribute('stroke-width','1');
+    line.setAttribute('stroke-dasharray','4 5');
+    linesG.appendChild(line);
+
+    // Traveling packet (hidden by default)
+    const pkt = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    pkt.id = `pkt-${key}`;
+    pkt.setAttribute('r','3');
+    pkt.setAttribute('fill', cfg.color);
+    pkt.setAttribute('opacity','0');
+    linesG.appendChild(pkt);
+  });
+
+  // Draw nodes (spokes first, then orchestrator on top)
+  [...SPOKES, 'orchestrator'].forEach(key => {
+    const cfg = AGENTS[key];
+    const p = pos(key);
+    const isOrch = key === 'orchestrator';
+    const nr = isOrch ? 33 : 25;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.id = `node-${key}`;
+    g.classList.add('node');
+    g.setAttribute('transform', `translate(${p.x},${p.y})`);
+    g.addEventListener('click', () => selectAgent(key));
+
+    // Ping ring
+    const ping = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ping.id = `ping-${key}`;
+    ping.setAttribute('r', nr+10); ping.setAttribute('fill','none');
+    ping.setAttribute('stroke', cfg.color); ping.setAttribute('stroke-width','0');
+    ping.setAttribute('opacity','0');
+    g.appendChild(ping);
+
+    // Selection ring
+    const selRing = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    selRing.id = `selring-${key}`;
+    selRing.setAttribute('r', nr+5); selRing.setAttribute('fill','none');
+    selRing.setAttribute('stroke', cfg.color); selRing.setAttribute('stroke-width','0');
+    selRing.setAttribute('stroke-dasharray','4 3'); selRing.setAttribute('opacity','0');
+    g.appendChild(selRing);
+
+    // Outer
+    const outer = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    outer.setAttribute('r', nr);
+    outer.setAttribute('fill', cfg.color); outer.setAttribute('fill-opacity','0.12');
+    outer.setAttribute('stroke', cfg.color); outer.setAttribute('stroke-width','1.5'); outer.setAttribute('stroke-opacity','0.5');
+    g.appendChild(outer);
+
+    // Inner
+    const inner = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    inner.id = `inner-${key}`;
+    inner.setAttribute('r', nr-8);
+    inner.setAttribute('fill', cfg.color); inner.setAttribute('fill-opacity','0.22');
+    g.appendChild(inner);
+
+    // Icon
+    const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
+    icon.setAttribute('text-anchor','middle'); icon.setAttribute('dominant-baseline','central');
+    icon.setAttribute('font-size', isOrch ? '16' : '13');
+    icon.textContent = cfg.icon;
+    g.appendChild(icon);
+
+    // Label
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.id = `lbl-${key}`;
+    label.setAttribute('y', nr+13); label.setAttribute('text-anchor','middle');
+    label.setAttribute('font-size','9.5'); label.setAttribute('fill','#64748B'); label.setAttribute('font-family','sans-serif');
+    label.textContent = cfg.label;
+    g.appendChild(label);
+
+    nodesG.appendChild(g);
+  });
+
+  selectAgent('orchestrator');
+}
+
+// ─── Select agent ────────────────────────────────────────────
+function selectAgent(key) {
+  // Deselect previous
+  const prev = document.getElementById(`selring-${selected}`);
+  if (prev) { prev.setAttribute('stroke-width','0'); prev.setAttribute('opacity','0'); }
+  const prevLbl = document.getElementById(`lbl-${selected}`);
+  if (prevLbl) prevLbl.setAttribute('fill','#64748B');
+
+  selected = key;
+  const cfg = AGENTS[key];
+
+  // Select new
+  const ring = document.getElementById(`selring-${key}`);
+  if (ring) { ring.setAttribute('stroke-width','2'); ring.setAttribute('opacity','1'); }
+  const lbl = document.getElementById(`lbl-${key}`);
+  if (lbl) { lbl.setAttribute('fill', cfg.color); }
+
+  // Update info bar
+  document.getElementById('sel-icon').textContent = cfg.icon;
+  document.getElementById('sel-icon').style.background = cfg.color+'20';
+  document.getElementById('sel-icon').style.border = `1px solid ${cfg.color}50`;
+  document.getElementById('sel-label').textContent = cfg.label;
+  document.getElementById('sel-label').style.color = cfg.color;
+  document.getElementById('sel-desc').textContent = cfg.desc;
+  document.getElementById('sel-mode').textContent = cfg.mode;
+  document.getElementById('sel-mode').style.color = cfg.color;
+  document.getElementById('sel-mode').style.borderColor = cfg.color+'40';
+  document.getElementById('sel-mode').style.background = cfg.color+'15';
+
+  // Update input placeholder
+  document.getElementById('chat-input').placeholder = `Falar com ${cfg.label}…`;
+  document.getElementById('send-btn').style.background = cfg.color;
+}
+
+// ─── Animate active connection ────────────────────────────────
+let pktIntervals = {};
+
+function setActiveNode(key, on) {
+  if (!key || key === 'orchestrator') return;
+
+  const line = document.getElementById(`line-${key}`);
+  const ping = document.getElementById(`ping-${key}`);
+  const inner = document.getElementById(`inner-${key}`);
+  const pkt = document.getElementById(`pkt-${key}`);
+
+  if (on) {
+    if (line) { line.setAttribute('stroke-width','2'); line.setAttribute('stroke-dasharray','none'); }
+    if (ping) { ping.setAttribute('stroke-width','2'); ping.setAttribute('opacity','0.5'); }
+    if (inner) { inner.setAttribute('fill-opacity','0.45'); }
+
+    // Animate packet
+    if (pktIntervals[key]) clearInterval(pktIntervals[key]);
+    const p1 = pos('orchestrator'), p2 = pos(key);
+    let t = 0;
+    pktIntervals[key] = setInterval(() => {
+      t = (t + 0.04) % 1;
+      const x = p1.x + (p2.x - p1.x) * t;
+      const y = p1.y + (p2.y - p1.y) * t;
+      if (pkt) { pkt.setAttribute('cx', x); pkt.setAttribute('cy', y); pkt.setAttribute('opacity','0.9'); }
+    }, 30);
+  } else {
+    if (line) { line.setAttribute('stroke-width','1'); line.setAttribute('stroke-dasharray','4 5'); }
+    if (ping) { ping.setAttribute('stroke-width','0'); ping.setAttribute('opacity','0'); }
+    if (inner) { inner.setAttribute('fill-opacity','0.22'); }
+    if (pkt) pkt.setAttribute('opacity','0');
+    if (pktIntervals[key]) { clearInterval(pktIntervals[key]); delete pktIntervals[key]; }
+  }
+}
+
+// ─── Activity log ────────────────────────────────────────────
+const ACT_ICONS = { user:'↑', routing:'⟳', routed:'→', thinking:'…', tool_call:'⚙', tool_result:'✓', delta:'▸', done:'●', error:'✗' };
+const ACT_COLORS = { user:'#60A5FA', routing:'#A855F7', routed:'#22C55E', thinking:'#475569', tool_call:'#F97316', tool_result:'#22C55E', delta:'#475569', done:'#14B8A6', error:'#EF4444' };
+
+function addActivity(type, text, agentKey) {
+  const cfg = agentKey && AGENTS[agentKey] ? AGENTS[agentKey] : null;
+  const time = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const icon = ACT_ICONS[type] || '·';
+  const color = ACT_COLORS[type] || '#475569';
+
+  const div = document.createElement('div');
+  div.className = 'activity-item';
+  div.innerHTML = `
+    <span class="activity-icon" style="color:${color}">${icon}</span>
+    <span class="activity-text">
+      ${cfg ? `<span class="activity-agent" style="color:${cfg.color}">[${cfg.label}] </span>` : ''}
+      ${text}
+    </span>
+    <span class="activity-time">${time}</span>
+  `;
+
+  const list = document.getElementById('activity-list');
+  // Remove placeholder
+  const ph = list.querySelector('.activity-item');
+  if (ph && ph.querySelector('.activity-text')?.textContent?.includes('Nenhuma')) list.innerHTML = '';
+
+  list.insertBefore(div, list.firstChild);
+  if (list.children.length > 40) list.removeChild(list.lastChild);
+
+  activityItems.push({type, text, agentKey, time});
+  document.getElementById('act-cnt').textContent = activityItems.length;
+}
+
+function toggleActivity() {
+  activityOpen = !activityOpen;
+  document.getElementById('activity-panel').style.maxHeight = activityOpen ? '160px' : '37px';
+  document.getElementById('act-chevron').textContent = activityOpen ? '▾' : '▸';
+}
+
+// ─── Messages ────────────────────────────────────────────────
+function addMessage(role, content, agentKey, streaming) {
+  const id = `msg-${++msgIdCounter}`;
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  const cfg = agentKey ? AGENTS[agentKey] : AGENTS.orchestrator;
+  const msgs = document.getElementById('messages');
+
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.id = id;
+
+  if (role === 'assistant') {
+    div.innerHTML = `
+      <div class="msg-avatar" style="background:${cfg.color}20;border:1px solid ${cfg.color}40">${cfg.icon}</div>
+      <div class="msg-body">
+        <span class="msg-label" style="color:${cfg.color}">${cfg.label}</span>
+        <div class="msg-bubble">${streaming ? '<span class="cursor"></span>' : escHtml(content)}</div>
+      </div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-body">
+        <div class="msg-bubble">${escHtml(content)}</div>
+      </div>`;
+  }
+
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function updateMessage(id, content, streaming) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const bubble = el.querySelector('.msg-bubble');
+  if (!bubble) return;
+  bubble.innerHTML = escHtml(content) + (streaming ? '<span class="cursor"></span>' : '');
+  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ─── Simulated agent responses ────────────────────────────────
+const MOCK_RESPONSES = {
+  orchestrator: (msg) => {
+    const m = msg.toLowerCase();
+    if (m.includes('pipeline') || m.includes('negócio') || m.includes('deal')) return { agent:'deal', response: getMockResponse('deal', msg) };
+    if (m.includes('pós') || m.includes('churn') || m.includes('cliente') && m.includes('perdendo')) return { agent:'postsales', response: getMockResponse('postsales', msg) };
+    if (m.includes('agenda') || m.includes('tarefa') || m.includes('kpi') || m.includes('ligaç')) return { agent:'agenda', response: getMockResponse('agenda', msg) };
+    if (m.includes('carteira') || m.includes('portfólio') || m.includes('prioridade')) return { agent:'carteira', response: getMockResponse('carteira', msg) };
+    if (m.includes('ranking') || m.includes('ponto') || m.includes('nível')) return { agent:'gamification', response: getMockResponse('gamification', msg) };
+    if (m.includes('equipe') || m.includes('team') || m.includes('forecast')) return { agent:'manager', response: getMockResponse('manager', msg) };
+    return { agent:'feedback', response: getMockResponse('feedback', msg) };
+  },
+  feedback: (msg) => ({ agent:'feedback', response: getMockResponse('feedback', msg) }),
+  carteira: (msg) => ({ agent:'carteira', response: getMockResponse('carteira', msg) }),
+  deal: (msg) => ({ agent:'deal', response: getMockResponse('deal', msg) }),
+  postsales: (msg) => ({ agent:'postsales', response: getMockResponse('postsales', msg) }),
+  manager: (msg) => ({ agent:'manager', response: getMockResponse('manager', msg) }),
+  gamification: (msg) => ({ agent:'gamification', response: getMockResponse('gamification', msg) }),
+  inactivity: (msg) => ({ agent:'inactivity', response: getMockResponse('inactivity', msg) }),
+  agenda: (msg) => ({ agent:'agenda', response: getMockResponse('agenda', msg) }),
+};
+
+function getMockResponse(agentKey, msg) {
+  const responses = {
+    feedback: `📊 **Análise do seu desempenho — Junho 2026**
+
+Aqui está seu panorama da semana, ${msg.includes('nome') ? 'vendedor' : 'vendedor'}:
+
+**✅ Pontos fortes:**
+- Taxa de conversão: **18.5%** (média da equipe: 14.2%) — você está 30% acima!
+- Ticket médio: **R$ 42.300** — o maior da equipe
+- Cadência de follow-up: consistente, sem gaps > 3 dias
+
+**⚠️ Oportunidades de melhoria:**
+- 4 negócios em **proposta** sem resposta há mais de 5 dias
+- Reuniões realizadas esta semana: 3 (meta: 5)
+- 2 negócios prestes a vencer o prazo esta semana
+
+**🎯 Ação prioritária para hoje:**
+Ligue agora para **Empresa ABC** — proposta enviada há 7 dias sem retorno, valor R$ 85.000. Probabilidade de fechar: alta se reativar contato ainda hoje.
+
+Você está no caminho certo. Foco nos follow-ups e essa semana fecha forte! 💪`,
+
+    carteira: `💼 **Carteira de Clientes — Visão Geral**
+
+Analisando seus **23 clientes ativos** no portfólio:
+
+**🔴 Atenção imediata (3 clientes):**
+1. **TechFlow Ltda** — 9 dias sem contato, negócio de R$ 120k em risco
+2. **Grupo Delta** — proposta vencida há 3 dias, decisor não respondeu
+3. **Serviços Premium** — mudança de contato, requalificar necessidade
+
+**🟡 Monitoramento (7 clientes):**
+- 4–6 dias sem atividade, agendar contato esta semana
+
+**✅ Pipeline saudável (13 clientes):**
+- Bem distribuídos nas etapas, dentro do prazo
+
+**📌 Top prioridade para hoje:**
+Ligue para **TechFlow** — valor R$ 120k, probabilidade caiu de 70% para 45% após silêncio. Um contato hoje pode reverter.
+
+Quer que eu gere a lista completa com sugestão de abordagem para cada um?`,
+
+    deal: `🔍 **Deal Intelligence — Health Score dos Negócios**
+
+Analisando seus **15 negócios ativos** no pipeline:
+
+**Health Scores:**
+| Negócio | Valor | Etapa | Score | Status |
+|---|---|---|---|---|
+| TechFlow — ERP | R$ 120k | Proposta | 🔴 38 | Crítico |
+| Grupo Delta | R$ 85k | Negociação | 🟡 62 | Atenção |
+| Varejo Sul | R$ 45k | Qualificação | ✅ 87 | Saudável |
+| Indústrias BR | R$ 220k | Proposta | 🟡 55 | Atenção |
+| StartTech | R$ 28k | Fechamento | ✅ 91 | Saudável |
+
+**🚨 TechFlow — Análise completa:**
+- 9 dias sem atividade (-27 pontos de health)
+- Proposta enviada, nenhuma interação posterior
+- Prazo de fechamento: daqui 4 dias
+- Comparando com negócios similares ganhos: os que fecharam tiveram **ligação de follow-up no dia 3**
+
+**Próximo passo recomendado:**
+Ligue HOJE. Script sugerido: *"Olá [nome], gostaria de entender se a proposta atende às necessidades de vocês e o que precisamos ajustar para avançar."*`,
+
+    postsales: `🤝 **Análise de Pós-Vendas — Base de Clientes**
+
+Monitorando **18 clientes** que fecharam negócio nos últimos 12 meses:
+
+**🔴 Risco de Churn (2 clientes):**
+1. **Metalúrgica Sousa** — fechou R$ 95k há 8 meses, zero interação pós-venda
+2. **Logística Express** — NPS não respondido, último contato há 47 dias
+
+**📈 Oportunidades de Upsell (3 clientes):**
+1. **Grupo Nexus** — cliente satisfeito, cresceu 40% desde a compra → potencial R$ 60k
+2. **Tech Solutions** — usa só 60% do produto, expansão natural de licenças
+3. **Comércio União** — referenciou 2 novos leads, alto NPS → momento ideal para expansão
+
+**⏰ Reativação necessária (4 clientes):**
+- Sem interação há 90+ dias, ainda com potencial de renovação
+
+**Ação criada automaticamente:**
+✅ Tarefa "Ligar para Metalúrgica Sousa" criada para hoje, prioridade Alta — clique para ver na agenda.`,
+
+    manager: `📊 **Visão da Equipe — Dashboard Gerencial**
+
+**Pipeline consolidado — Junho 2026:**
+- Total em negociação: **R$ 2.847.000**
+- Meta do mês: R$ 3.200.000 (89% atingido)
+- Projeção de fechamento: **R$ 1.12M** esta semana
+
+**Performance individual:**
+| Vendedor | Negócios | Pipeline | Taxa Conv. | Status |
+|---|---|---|---|---|
+| Ana Silva | 18 | R$ 820k | 22% | ✅ Acima |
+| Carlos Melo | 12 | R$ 640k | 15% | 🟡 Na meta |
+| Julia Costa | 21 | R$ 990k | 19% | ✅ Acima |
+| Pedro Lima | 8 | R$ 397k | 11% | 🔴 Abaixo |
+
+**⚠️ Gargalos identificados:**
+1. **Etapa "Proposta"** tem 14 negócios parados há > 7 dias (R$ 1.2M represado)
+2. **Pedro Lima** precisa de suporte — taxa de conversão abaixo da média
+3. 3 negócios com valor > R$ 150k sem atividade há 5+ dias
+
+**Recomendação:** Reunião de pipeline com Pedro amanhã + revisar as propostas paradas.`,
+
+    gamification: `🏆 **Seu Perfil de Gamificação**
+
+**Nível atual: Negociador** ⚔️ (Nível 4 de 7)
+XP: **4.280 / 5.000** para o próximo nível (Closer)
+
+**Progresso semanal:**
+- 🔥 Streak: **8 dias consecutivos** de atividade
+- ⚡ XP ganho esta semana: **+420 pts**
+- 📞 Ligações: 23 (+10 pts cada = 230)
+- 🤝 Reuniões: 4 (+20 pts cada = 80)
+- 🏆 Negócios fechados: 2 (+200 pts cada = 400)
+
+**Ranking atual — Top 5:**
+1. 🥇 Julia Costa — 6.840 pts
+2. 🥈 Ana Silva — 5.120 pts
+3. 🥉 **Você** — 4.280 pts ← aqui!
+4. Carlos Melo — 3.950 pts
+5. Pedro Lima — 2.780 pts
+
+**Conquista desbloqueada: 🔥 "Semana Perfeita"** — 5+ ligações por dia, 5 dias seguidos!
+
+Faltam apenas **720 XP** para alcançar Julia. Feche mais 2 negócios esta semana e você pode virar o jogo! 💪`,
+
+    inactivity: `🚨 **Varredura de Inatividade — Alerta**
+
+Scan realizado em **147 negócios ativos** na empresa:
+
+**🔴 CRÍTICO (inatividade > 7 dias): 8 negócios**
+- TechFlow ERP — 9 dias, R$ 120k
+- Indústrias Machado — 8 dias, R$ 340k ⚠️ ALTO VALOR
+- Farmácias Popular — 7 dias, R$ 65k
+- + 5 negócios adicionais
+
+**🟡 ATENÇÃO (inatividade 4–7 dias): 15 negócios**
+- 15 negócios no total, R$ 780k em risco moderado
+
+**📊 Estatísticas:**
+- Inatividade média do portfólio: 3.2 dias
+- Negócios no prazo: 124 (84%)
+- Valor total em risco crítico: **R$ 1.24M**
+
+**Alertas WhatsApp enviados:** 3 mensagens para gestores sobre os negócios críticos de alto valor.
+
+Quer que eu crie tarefas automáticas de follow-up para os 8 negócios críticos?`,
+
+    agenda: `📅 **Sua Agenda — ${new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'})}**
+
+**KPIs do dia (atualizado agora):**
+- 📞 Ligações: **7 / 10** (meta diária)
+- 🤝 Reuniões: **2 / 3**
+- 🏢 Empresas atingidas: **5 / 7**
+- 💼 Negócios tratados: **9**
+- 🏆 Vendas fechadas: **1**
+
+**Tarefas pendentes para hoje:**
+1. 🔴 **[URGENTE]** Follow-up TechFlow — proposta há 9 dias (R$ 120k)
+2. 🟠 Enviar contrato para StartTech — negócio em fechamento
+3. 🟡 Agendar demo para Varejo Sul (lead quente)
+4. 🟡 Ligar para Metalúrgica Sousa (pós-venda)
+5. 🟢 Atualizar notas no CRM dos negócios da manhã
+
+**Sugestão de prioridade:**
+Comece pelo item 1 (TechFlow) — maior valor em risco. Depois item 2 para não perder o momentum do StartTech.
+
+Deseja criar nova tarefa ou marcar alguma como concluída?`,
+  };
+
+  return responses[agentKey] || responses.feedback;
+}
+
+// ─── Simulate tools ──────────────────────────────────────────
+const TOOL_CALLS = {
+  feedback: [
+    { delay: 400, call: 'get_my_metrics', label: 'Buscando métricas do vendedor…' },
+    { delay: 900, result: 'get_my_metrics', label: '✓ Métricas carregadas (30 dias)' },
+    { delay: 1100, call: 'get_my_pipeline', label: 'Analisando pipeline ativo…' },
+    { delay: 1800, result: 'get_my_pipeline', label: '✓ 15 negócios analisados' },
+    { delay: 2000, call: 'get_won_deals_patterns', label: 'Verificando padrões de fechamento…' },
+    { delay: 2700, result: 'get_won_deals_patterns', label: '✓ Padrões identificados' },
+  ],
+  deal: [
+    { delay: 400, call: 'get_active_deals_with_health', label: 'Calculando health scores…' },
+    { delay: 1200, result: 'get_active_deals_with_health', label: '✓ 15 negócios analisados com scores' },
+    { delay: 1400, call: 'compare_to_won_deals', label: 'Comparando com negócios ganhos…' },
+    { delay: 2100, result: 'compare_to_won_deals', label: '✓ Análise comparativa concluída' },
+  ],
+  postsales: [
+    { delay: 400, call: 'get_churn_risks', label: 'Detectando riscos de churn…' },
+    { delay: 1100, result: 'get_churn_risks', label: '✓ 2 clientes em risco crítico' },
+    { delay: 1300, call: 'get_upsell_opportunities', label: 'Mapeando oportunidades de upsell…' },
+    { delay: 2000, result: 'get_upsell_opportunities', label: '✓ 3 oportunidades identificadas' },
+  ],
+  carteira: [
+    { delay: 400, call: 'get_overdue_deals', label: 'Verificando negócios atrasados…' },
+    { delay: 1000, result: 'get_overdue_deals', label: '✓ 3 negócios requerem atenção' },
+    { delay: 1200, call: 'generate_priority_list', label: 'Gerando lista de prioridades…' },
+    { delay: 2000, result: 'generate_priority_list', label: '✓ Lista ordenada por impacto' },
+  ],
+  manager: [
+    { delay: 400, call: 'get_pipeline_overview', label: 'Carregando visão do pipeline…' },
+    { delay: 1100, result: 'get_pipeline_overview', label: '✓ Pipeline consolidado' },
+    { delay: 1300, call: 'get_team_performance', label: 'Analisando performance da equipe…' },
+    { delay: 2200, result: 'get_team_performance', label: '✓ 5 vendedores analisados' },
+    { delay: 2400, call: 'get_bottlenecks', label: 'Identificando gargalos…' },
+    { delay: 3000, result: 'get_bottlenecks', label: '✓ 2 gargalos críticos detectados' },
+  ],
+  gamification: [
+    { delay: 400, call: 'get_leaderboard', label: 'Buscando ranking da equipe…' },
+    { delay: 900, result: 'get_leaderboard', label: '✓ Top 5 carregado' },
+    { delay: 1100, call: 'get_my_achievements', label: 'Carregando conquistas…' },
+    { delay: 1600, result: 'get_my_achievements', label: '✓ Perfil de gamificação carregado' },
+  ],
+  inactivity: [
+    { delay: 400, call: 'scan_inactivity', label: 'Varrendo inatividade (147 negócios)…' },
+    { delay: 1500, result: 'scan_inactivity', label: '✓ Scan concluído — 8 críticos' },
+    { delay: 1700, call: 'get_high_value_at_risk', label: 'Analisando negócios de alto valor…' },
+    { delay: 2400, result: 'get_high_value_at_risk', label: '✓ R$ 1.24M em risco identificados' },
+  ],
+  agenda: [
+    { delay: 400, call: 'get_today_kpis', label: 'Calculando KPIs de hoje…' },
+    { delay: 900, result: 'get_today_kpis', label: '✓ KPIs do dia calculados' },
+    { delay: 1100, call: 'get_today_agenda', label: 'Carregando agenda do dia…' },
+    { delay: 1700, result: 'get_today_agenda', label: '✓ 5 tarefas pendentes carregadas' },
+  ],
+};
+
+// ─── Send message ────────────────────────────────────────────
+function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || isStreaming) return;
+  input.value = '';
+
+  isStreaming = true;
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('status-badge').textContent = 'Processando…';
+
+  // Add user message
+  addMessage('user', text, null, false);
+  addActivity('user', `Mensagem enviada para ${AGENTS[selected].label}`);
+
+  // Determine routing
+  const sim = MOCK_RESPONSES[selected](text);
+  const targetAgent = selected === 'orchestrator' ? sim.agent : selected;
+
+  let msgId;
+  const tools = TOOL_CALLS[targetAgent] || TOOL_CALLS.feedback;
+  const totalTime = tools.length > 0 ? Math.max(...tools.map(t => t.delay)) + 800 : 1000;
+
+  // Phase 1: routing (if orchestrator)
+  if (selected === 'orchestrator') {
+    addActivity('routing', 'Orquestrador classificando mensagem…', 'orchestrator');
+    setActiveNode('orchestrator', true); // Highlight orchestrator itself via inner pulse
+    const orchInner = document.getElementById('inner-orchestrator');
+    if (orchInner) orchInner.setAttribute('fill-opacity','0.5');
+
+    setTimeout(() => {
+      addActivity('routed', `Roteado → ${AGENTS[targetAgent].label}`, targetAgent);
+      setActiveNode('orchestrator', false);
+      if (orchInner) orchInner.setAttribute('fill-opacity','0.22');
+      setActiveNode(targetAgent, true);
+
+      // Create assistant bubble
+      msgId = addMessage('assistant', '', targetAgent, true);
+
+      // Simulate tool calls
+      simulateTools(tools, targetAgent, msgId, sim.response, totalTime);
+    }, 600);
+  } else {
+    setActiveNode(targetAgent, true);
+    msgId = addMessage('assistant', '', targetAgent, true);
+    addActivity('thinking', 'Processando consulta…', targetAgent);
+    simulateTools(tools, targetAgent, msgId, sim.response, totalTime);
+  }
+}
+
+function simulateTools(tools, agent, msgId, finalResponse, totalTime) {
+  tools.forEach(t => {
+    setTimeout(() => {
+      if (t.call) addActivity('tool_call', t.label, agent);
+      if (t.result) addActivity('tool_result', t.label, agent);
+    }, t.delay);
+  });
+
+  // Start streaming response after tools
+  const streamStart = totalTime;
+  setTimeout(() => {
+    addActivity('delta', 'Gerando resposta…', agent);
+    streamText(msgId, finalResponse, 0, agent);
+  }, streamStart);
+}
+
+function streamText(msgId, text, idx, agent) {
+  // Stream in chunks for natural feel
+  const chunkSize = Math.floor(Math.random() * 4) + 1;
+  const nextIdx = Math.min(idx + chunkSize, text.length);
+  const partial = text.slice(0, nextIdx);
+
+  updateMessage(msgId, partial, nextIdx < text.length);
+
+  if (nextIdx < text.length) {
+    const delay = Math.random() * 18 + 8;
+    setTimeout(() => streamText(msgId, text, nextIdx, agent), delay);
+  } else {
+    // Done
+    isStreaming = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('status-badge').textContent = 'Aguardando';
+    setActiveNode(agent, false);
+    addActivity('done', 'Resposta concluída', agent);
+  }
+}
+
+// ─── Quick prompts ────────────────────────────────────────────
+const QUICK = [
+  { text:'Como está meu pipeline hoje?', agent:'feedback' },
+  { text:'Analise negócios em risco', agent:'deal' },
+  { text:'Clientes que posso perder?', agent:'postsales' },
+  { text:'Minha agenda do dia', agent:'agenda' },
+];
+
+function buildQuickPrompts() {
+  const container = document.getElementById('quick-prompts');
+  QUICK.forEach(q => {
+    const cfg = AGENTS[q.agent];
+    const btn = document.createElement('button');
+    btn.className = 'qp';
+    btn.textContent = q.text;
+    btn.style.cssText = `color:${cfg.color};border-color:${cfg.color}50;background:${cfg.color}12`;
+    btn.onclick = () => {
+      selectAgent(q.agent);
+      setTimeout(() => {
+        document.getElementById('chat-input').value = q.text;
+        sendMessage();
+      }, 80);
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ─── Input keyboard ──────────────────────────────────────────
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ─── Init ────────────────────────────────────────────────────
+buildGraph();
+buildQuickPrompts();
+</script>
+</body>
+</html>
