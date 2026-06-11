@@ -7,6 +7,8 @@ import { ManagerAgent } from './manager.js';
 import { GamificationAgent } from './gamification.js';
 import { InactivityAgent } from './inactivity.js';
 import { AgendaAgent } from './agenda.js';
+import { DealAgent } from './deal.js';
+import { PostSalesAgent } from './postsales.js';
 
 // OrchestratorAgent - Roteador inteligente que delega para o agente especializado certo
 export class OrchestratorAgent {
@@ -21,6 +23,8 @@ export class OrchestratorAgent {
       ['gamification', new GamificationAgent('gamification', deps)],
       ['inactivity', new InactivityAgent('inactivity', deps)],
       ['agenda', new AgendaAgent('agenda', deps)],
+      ['deal', new DealAgent('deal', deps)],
+      ['postsales', new PostSalesAgent('postsales', deps)],
     ]);
   }
 
@@ -49,11 +53,13 @@ export class OrchestratorAgent {
       model: this.model,
       max_tokens: 50,
       system: `Você classifica mensagens de usuários de uma plataforma comercial.
-Responda APENAS com uma das opções: feedback, carteira, manager, gamification, inactivity, agenda
+Responda APENAS com uma das opções: feedback, carteira, deal, postsales, manager, gamification, inactivity, agenda
 
 - agenda: tarefas do dia, o que fazer, o que fiz, minha agenda, reuniões de hoje, ligações feitas, KPIs do dia, produtividade, criar tarefa, marcar como feito
 - feedback: coaching pessoal, meu desempenho, minhas métricas, como estou indo, análise de resultados
-- carteira: carteira de clientes, clientes sem contato, lista de prioridades
+- carteira: carteira de clientes, clientes sem contato, lista de prioridades de prospectos
+- deal: analisar negócio específico, health score, o que falta para fechar, próximo passo de um deal, risco de perder negócio, comparar negócios, qual deal priorizar
+- postsales: pós-venda, churn, cliente inativo pós-fechamento, reativar cliente, NPS, upsell, clientes que já compraram, satisfação do cliente, expansão de conta
 - manager: equipe inteira, pipeline geral, forecast, gargalos (só gestores)
 - gamification: ranking, pontos, conquistas, meu nível, placar
 - inactivity: alertas de inatividade, negócios parados, varredura automática
@@ -63,7 +69,7 @@ Contexto: usuário é ${ctx.user_role}.`,
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text.trim().toLowerCase() : '';
-    const valid: AgentType[] = ['feedback', 'carteira', 'manager', 'gamification', 'inactivity', 'agenda'];
+    const valid: AgentType[] = ['feedback', 'carteira', 'deal', 'postsales', 'manager', 'gamification', 'inactivity', 'agenda'];
 
     return (valid.find(v => text.includes(v)) as AgentType | undefined) ?? 'feedback';
   }

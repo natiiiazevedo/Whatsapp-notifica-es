@@ -77,7 +77,8 @@ export type AgentType =
   | 'manager'
   | 'gamification'
   | 'inactivity'
-  | 'agenda';
+  | 'agenda'
+  | 'postsales';
 
 export interface AgentMessage {
   role: 'user' | 'assistant' | 'system';
