@@ -5,7 +5,9 @@ import { api } from '@/lib/api';
 import { AgentChat } from '@/components/AgentChat';
 import { DealCard } from '@/components/DealCard';
 import { TeamMetricsGrid, RevenueChart, RankingTable } from '@/components/TeamMetrics';
-import { Bell, LayoutDashboard, MessageSquare, Trophy, LogOut, Settings, AlertCircle } from 'lucide-react';
+import { AgendaBoard } from '@/components/AgendaBoard';
+import { SalespersonKPIs, TeamKPIsTable } from '@/components/DailyKPIs';
+import { Bell, LayoutDashboard, MessageSquare, Trophy, LogOut, CalendarDays, AlertCircle } from 'lucide-react';
 import type { Deal } from '@sales/shared';
 
 interface DashboardData {
@@ -17,7 +19,7 @@ interface DashboardData {
   gamificacao: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
-type Tab = 'overview' | 'chat' | 'ranking';
+type Tab = 'overview' | 'agenda' | 'chat' | 'ranking';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'text-red-600 bg-red-50 border-red-200',
@@ -30,8 +32,10 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [history, setHistory] = useState<unknown[]>([]);
   const [ranking, setRanking] = useState<unknown[]>([]);
-  const [tab, setTab] = useState<Tab>('overview');
-  const [user, setUser] = useState<{ name: string; role: string; email: string } | null>(null);
+  const [kpis, setKpis] = useState<Record<string, unknown> | null>(null);
+  const [teamKpis, setTeamKpis] = useState<unknown[]>([]);
+  const [tab, setTab] = useState<Tab>('agenda');
+  const [user, setUser] = useState<{ id: string; name: string; role: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,11 +47,18 @@ export default function DashboardPage() {
       api.dashboard.metricsHistory(30),
       api.dashboard.ranking(),
       api.auth.me(),
-    ]).then(([overview, history, ranking, me]) => {
+      api.tasks.kpis.today(),
+    ]).then(([overview, hist, rank, me, kpiData]) => {
       setData(overview as DashboardData);
-      setHistory(history as unknown[]);
-      setRanking(ranking as unknown[]);
-      setUser(me as { name: string; role: string; email: string });
+      setHistory(hist as unknown[]);
+      setRanking(rank as unknown[]);
+      setUser(me as { id: string; name: string; role: string; email: string });
+      const isManager = (me as { role: string }).role !== 'salesperson';
+      if (isManager) {
+        setTeamKpis(kpiData as unknown[]);
+      } else {
+        setKpis(kpiData as Record<string, unknown>);
+      }
     }).catch(() => {
       localStorage.removeItem('sales_token');
       window.location.href = '/';
@@ -80,9 +91,10 @@ export default function DashboardPage() {
 
         <nav className="flex-1 p-3 space-y-1">
           {[
-            { key: 'overview', label: 'Painel', icon: <LayoutDashboard className="w-4 h-4" /> },
-            { key: 'chat', label: 'Chat com IA', icon: <MessageSquare className="w-4 h-4" /> },
-            { key: 'ranking', label: 'Ranking', icon: <Trophy className="w-4 h-4" /> },
+            { key: 'agenda',   label: 'Minha Agenda',  icon: <CalendarDays className="w-4 h-4" /> },
+            { key: 'overview', label: 'Painel',         icon: <LayoutDashboard className="w-4 h-4" /> },
+            { key: 'chat',     label: 'Chat com IA',    icon: <MessageSquare className="w-4 h-4" /> },
+            { key: 'ranking',  label: 'Ranking',         icon: <Trophy className="w-4 h-4" /> },
           ].map(item => (
             <button
               key={item.key}
@@ -117,6 +129,34 @@ export default function DashboardPage() {
 
       {/* Main */}
       <main className="flex-1 overflow-auto">
+
+        {/* ── AGENDA ── */}
+        {tab === 'agenda' && (
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold">
+                  {isManager ? 'Agenda da Equipe' : `Sua Agenda, ${user?.name?.split(' ')[0]}`}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+              </div>
+            </div>
+
+            {/* KPIs do dia */}
+            {isManager && teamKpis.length > 0 && (
+              <TeamKPIsTable team={teamKpis as Parameters<typeof TeamKPIsTable>[0]['team']} />
+            )}
+            {!isManager && kpis && (
+              <SalespersonKPIs kpis={kpis as Parameters<typeof SalespersonKPIs>[0]['kpis']} />
+            )}
+
+            {/* Board de tarefas */}
+            {user && <AgendaBoard userId={user.id} />}
+          </div>
+        )}
+
         {tab === 'overview' && (
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">

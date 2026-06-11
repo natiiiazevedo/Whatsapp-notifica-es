@@ -6,6 +6,7 @@ import { CarteiraAgent } from './carteira.js';
 import { ManagerAgent } from './manager.js';
 import { GamificationAgent } from './gamification.js';
 import { InactivityAgent } from './inactivity.js';
+import { AgendaAgent } from './agenda.js';
 
 // OrchestratorAgent - Roteador inteligente que delega para o agente especializado certo
 export class OrchestratorAgent {
@@ -19,6 +20,7 @@ export class OrchestratorAgent {
       ['manager', new ManagerAgent('manager', deps)],
       ['gamification', new GamificationAgent('gamification', deps)],
       ['inactivity', new InactivityAgent('inactivity', deps)],
+      ['agenda', new AgendaAgent('agenda', deps)],
     ]);
   }
 
@@ -47,20 +49,21 @@ export class OrchestratorAgent {
       model: this.model,
       max_tokens: 50,
       system: `Você classifica mensagens de usuários de uma plataforma comercial.
-Responda APENAS com uma das opções: feedback, carteira, manager, gamification, inactivity
+Responda APENAS com uma das opções: feedback, carteira, manager, gamification, inactivity, agenda
 
-- feedback: coaching pessoal, meu desempenho, minhas métricas, meus negócios, como estou indo
-- carteira: clientes sem contato, lista de prioridades, quem devo ligar, carteira de clientes
-- manager: equipe, time, pipeline geral, forecast, gargalos, visão geral (só para gestores)
+- agenda: tarefas do dia, o que fazer, o que fiz, minha agenda, reuniões de hoje, ligações feitas, KPIs do dia, produtividade, criar tarefa, marcar como feito
+- feedback: coaching pessoal, meu desempenho, minhas métricas, como estou indo, análise de resultados
+- carteira: carteira de clientes, clientes sem contato, lista de prioridades
+- manager: equipe inteira, pipeline geral, forecast, gargalos (só gestores)
 - gamification: ranking, pontos, conquistas, meu nível, placar
-- inactivity: alertas de inatividade, negócios parados, varredura de inativos
+- inactivity: alertas de inatividade, negócios parados, varredura automática
 
 Contexto: usuário é ${ctx.user_role}.`,
       messages: [{ role: 'user', content: message }],
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text.trim().toLowerCase() : '';
-    const valid: AgentType[] = ['feedback', 'carteira', 'manager', 'gamification', 'inactivity'];
+    const valid: AgentType[] = ['feedback', 'carteira', 'manager', 'gamification', 'inactivity', 'agenda'];
 
     return (valid.find(v => text.includes(v)) as AgentType | undefined) ?? 'feedback';
   }

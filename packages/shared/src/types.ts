@@ -76,7 +76,8 @@ export type AgentType =
   | 'feedback'
   | 'manager'
   | 'gamification'
-  | 'inactivity';
+  | 'inactivity'
+  | 'agenda';
 
 export interface AgentMessage {
   role: 'user' | 'assistant' | 'system';
@@ -240,6 +241,70 @@ export interface Bitrix24Activity {
   END_TIME: string;
   DURATION: string;
   [key: string]: unknown;
+}
+
+// ─── Tarefas e Agenda ─────────────────────────────────────────
+
+export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low';
+export type TaskStatus   = 'pending' | 'in_progress' | 'done' | 'cancelled';
+export type TaskType     = 'call' | 'meeting' | 'email' | 'whatsapp' | 'proposal' | 'follow_up' | 'demo' | 'contract' | 'other';
+
+export interface Task {
+  id: string;
+  user_id: string;
+  company_id: string;
+  deal_id?: string;
+  contact_name?: string;
+  company_name?: string;
+  title: string;
+  description?: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  type: TaskType;
+  due_date?: string;
+  due_time?: string;
+  completed_at?: string;
+  completed_note?: string;
+  created_by: 'user' | 'agent';
+  source_deal_value?: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyKPIs {
+  user_id: string;
+  company_id: string;
+  date: string;
+  calls_done: number;
+  meetings_done: number;
+  emails_sent: number;
+  whatsapp_sent: number;
+  deals_won: number;
+  revenue_won: number;
+  deals_worked: number;
+  companies_reached: number;
+  tasks_created: number;
+  tasks_done: number;
+  tasks_overdue: number;
+  pipeline_value: number;
+  active_deals: number;
+  goal_calls?: number;
+  goal_meetings?: number;
+  goal_companies?: number;
+}
+
+export interface SalesGoal {
+  id: string;
+  user_id: string;
+  company_id: string;
+  period_start: string;
+  period_end: string;
+  goal_calls_per_day: number;
+  goal_meetings_per_day: number;
+  goal_deals_per_month: number;
+  goal_revenue_per_month?: number;
+  goal_companies_per_day: number;
 }
 
 // ─── WhatsApp ─────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import { agentRoutes } from './routes/agents.js';
 import { authRoutes } from './routes/auth.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { webhookRoutes } from './routes/webhooks.js';
+import { taskRoutes } from './routes/tasks.js';
 
 import { OrchestratorAgent } from '@sales/agents';
 import { MemoryService } from '@sales/memory';
@@ -80,6 +81,7 @@ async function bootstrap() {
   fastify.register(authRoutes, { prefix: '/api/auth' });
   fastify.register(agentRoutes, { prefix: '/api/agents', orchestrator });
   fastify.register(dashboardRoutes, { prefix: '/api/dashboard' });
+  fastify.register(taskRoutes, { prefix: '/api/tasks' });
   fastify.register(webhookRoutes, { prefix: '/api/webhooks', orchestrator, whatsapp, bitrixSync });
 
   // Health check

@@ -119,16 +119,22 @@ export function startScheduler(deps: {
     }
   });
 
-  // ─── Calcula métricas diárias - 23h ─────────────────────────
+  // ─── Consolida KPIs diários - 23h ────────────────────────────
   cron.schedule('0 23 * * *', async () => {
-    console.log('[scheduler] Calculating daily metrics...');
+    console.log('[scheduler] Persisting daily KPIs...');
     try {
+      // Persiste KPIs do dia via AgendaAgent
+      const agendaAgent = orchestrator.getAgent('agenda') as import('@sales/agents').AgendaAgent;
+      const companiesRes = await db.query(`SELECT DISTINCT company_id FROM users WHERE active = true`);
+      for (const row of companiesRes.rows) {
+        await agendaAgent?.persistDailyKPIs(row.company_id).catch(console.error);
+      }
+
+      // Também persiste métricas legadas
       await db.query(`
         INSERT INTO daily_metrics (user_id, company_id, date, deals_active, deals_won, revenue_won, pipeline_value)
         SELECT
-          d.assigned_user_id,
-          d.company_id,
-          CURRENT_DATE,
+          d.assigned_user_id, d.company_id, CURRENT_DATE,
           COUNT(*) FILTER (WHERE d.stage NOT IN ('won','lost')),
           COUNT(*) FILTER (WHERE d.stage = 'won' AND d.updated_at::date = CURRENT_DATE),
           COALESCE(SUM(d.value) FILTER (WHERE d.stage = 'won' AND d.updated_at::date = CURRENT_DATE), 0),
@@ -142,7 +148,27 @@ export function startScheduler(deps: {
           pipeline_value = EXCLUDED.pipeline_value
       `);
     } catch (err) {
-      console.error('[scheduler] Daily metrics error:', err);
+      console.error('[scheduler] Daily KPIs error:', err);
+    }
+  });
+
+  // ─── Marcar tarefas vencidas - 9h ─────────────────────────────
+  cron.schedule('0 9 * * 1-5', async () => {
+    try {
+      const overdue = await db.query(
+        `SELECT t.*, u.whatsapp, u.name
+         FROM tasks t JOIN users u ON u.id = t.user_id
+         WHERE t.status = 'pending'
+           AND t.due_date < CURRENT_DATE
+           AND u.whatsapp IS NOT NULL`
+      );
+      for (const task of overdue.rows) {
+        await whatsapp.sendText(task.whatsapp,
+          `⏰ *Tarefa atrasada:* ${task.title}\nPrazo era ${new Date(task.due_date).toLocaleDateString('pt-BR')}.\nResponda "feito" para concluir ou acesse a plataforma.`
+        ).catch(() => {});
+      }
+    } catch (err) {
+      console.error('[scheduler] Overdue tasks error:', err);
     }
   });
 

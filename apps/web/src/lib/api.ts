@@ -53,4 +53,39 @@ export const api = {
     markInsightRead: (id: string) =>
       apiFetch<{ success: boolean }>(`/agents/insights/${id}/read`, { method: 'PATCH' }),
   },
+
+  tasks: {
+    list: (status?: string, date?: string) => {
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (date) params.set('date', date);
+      return apiFetch<unknown[]>(`/tasks?${params}`);
+    },
+    create: (data: Record<string, unknown>) =>
+      apiFetch<unknown>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    complete: (id: string, note?: string) =>
+      apiFetch<unknown>(`/tasks/${id}/complete`, {
+        method: 'PATCH',
+        body: JSON.stringify({ note }),
+      }),
+    update: (id: string, data: Record<string, unknown>) =>
+      apiFetch<unknown>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      apiFetch<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
+    suggestions: () => apiFetch<unknown[]>('/tasks/suggestions'),
+    kpis: {
+      today: () => apiFetch<unknown>('/tasks/kpis/today'),
+      history: (days = 30, userId?: string) => {
+        const params = new URLSearchParams({ days: String(days) });
+        if (userId) params.set('user_id', userId);
+        return apiFetch<unknown[]>(`/tasks/kpis/history?${params}`);
+      },
+      team: () => apiFetch<unknown[]>('/tasks/kpis/team'),
+    },
+    goals: {
+      list: () => apiFetch<unknown[]>('/tasks/goals'),
+      set: (data: Record<string, unknown>) =>
+        apiFetch<unknown>('/tasks/goals', { method: 'POST', body: JSON.stringify(data) }),
+    },
+  },
 };
