@@ -7,7 +7,7 @@ import type { User } from '@sales/shared';
 export async function authRoutes(fastify: FastifyInstance) {
   const loginSchema = z.object({
     email: z.string().email(),
-    password: z.string().min(8),
+    password: z.string().min(1),
   });
 
   // POST /api/auth/login
