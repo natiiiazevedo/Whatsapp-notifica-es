@@ -272,9 +272,12 @@ export default function DashboardPage() {
         )}
 
         {tab === 'lab' && (
-          <div className="h-screen" style={{ background: '#08090D' }}>
-            <AgentNetwork userRole={user?.role} />
-          </div>
+          <iframe
+            src="/lab.html"
+            className="w-full border-0"
+            style={{ height: '100vh', display: 'block' }}
+            title="Agent Lab"
+          />
         )}
       </main>
     </div>

@@ -95,6 +95,15 @@ const TAB_CONFIG: { key: EditorTab; label: string; placeholder: string; hint: st
   },
 ];
 
+const CLIENT_DEFAULT_CONFIGS: AgentConfig[] = Object.keys(AGENT_META).map(agent_type => ({
+  agent_type,
+  active: true,
+  personalidade: `Você é o ${AGENT_META[agent_type].label}, parte da equipe de agentes IA da plataforma comercial.`,
+  instrucoes: 'Ajude o usuário com sua área de especialidade, seja claro e objetivo.',
+  restricoes: 'Não execute ações fora do escopo comercial.',
+  empresa: '',
+}));
+
 interface AgentEditorProps {
   config: AgentConfig;
   isManager: boolean;
@@ -230,9 +239,9 @@ export function AgentSettings({ isManager }: AgentSettingsProps) {
     setLoading(true);
     try {
       const data = await api.agents.configs.list();
-      setConfigs(data);
+      setConfigs(data.length > 0 ? data : CLIENT_DEFAULT_CONFIGS);
     } catch {
-      // use defaults from API
+      setConfigs(CLIENT_DEFAULT_CONFIGS);
     } finally {
       setLoading(false);
     }
