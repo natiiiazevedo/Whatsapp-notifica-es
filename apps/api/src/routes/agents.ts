@@ -208,7 +208,130 @@ export async function agentRoutes(
     );
     return reply.send({ success: true });
   });
+
+  // GET /api/agents/configs - Listar configs de todos os agentes da empresa
+  fastify.get('/configs', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const res = await fastify.db.query(
+      `SELECT agent_type, active, personalidade, instrucoes, restricoes, empresa, updated_at,
+              u.name as updated_by_name
+       FROM agent_configs ac
+       LEFT JOIN users u ON u.id = ac.updated_by
+       WHERE ac.company_id = $1
+       ORDER BY agent_type`,
+      [request.user.company_id]
+    );
+
+    // Se não houver configs ainda, retorna defaults
+    if (res.rows.length === 0) {
+      return reply.send(DEFAULT_AGENT_CONFIGS);
+    }
+    return reply.send(res.rows);
+  });
+
+  // GET /api/agents/configs/:type - Config de um agente específico
+  fastify.get('/configs/:type', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { type } = request.params as { type: string };
+    const res = await fastify.db.query(
+      `SELECT agent_type, active, personalidade, instrucoes, restricoes, empresa, updated_at
+       FROM agent_configs WHERE company_id = $1 AND agent_type = $2`,
+      [request.user.company_id, type]
+    );
+    if (res.rows.length === 0) {
+      const def = DEFAULT_AGENT_CONFIGS.find(c => c.agent_type === type);
+      if (!def) return reply.code(404).send({ error: 'Agente não encontrado' });
+      return reply.send(def);
+    }
+    return reply.send(res.rows[0]);
+  });
+
+  // PUT /api/agents/configs/:type - Atualizar config (apenas gestores)
+  fastify.put('/configs/:type', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    if (request.user.role === 'salesperson') {
+      return reply.code(403).send({ error: 'Apenas gestores podem editar configurações de agentes' });
+    }
+
+    const { type } = request.params as { type: string };
+    const configSchema = z.object({
+      active: z.boolean().optional(),
+      personalidade: z.string().max(5000).optional(),
+      instrucoes: z.string().max(5000).optional(),
+      restricoes: z.string().max(2000).optional(),
+      empresa: z.string().max(2000).optional(),
+    });
+
+    const body = configSchema.parse(request.body);
+
+    await fastify.db.query(
+      `INSERT INTO agent_configs (company_id, agent_type, active, personalidade, instrucoes, restricoes, empresa, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       ON CONFLICT (company_id, agent_type) DO UPDATE SET
+         active        = COALESCE(EXCLUDED.active, agent_configs.active),
+         personalidade = COALESCE(EXCLUDED.personalidade, agent_configs.personalidade),
+         instrucoes    = COALESCE(EXCLUDED.instrucoes, agent_configs.instrucoes),
+         restricoes    = COALESCE(EXCLUDED.restricoes, agent_configs.restricoes),
+         empresa       = COALESCE(EXCLUDED.empresa, agent_configs.empresa),
+         updated_by    = EXCLUDED.updated_by,
+         updated_at    = NOW()`,
+      [
+        request.user.company_id,
+        type,
+        body.active ?? true,
+        body.personalidade ?? '',
+        body.instrucoes ?? '',
+        body.restricoes ?? '',
+        body.empresa ?? '',
+        request.user.id,
+      ]
+    );
+
+    return reply.send({ success: true });
+  });
 }
+
+const DEFAULT_AGENT_CONFIGS = [
+  { agent_type: 'orchestrator', active: true,
+    personalidade: 'Você é o orquestrador central da plataforma de vendas. É analítico, direto e eficiente. Decide qual agente especializado deve atender cada demanda.',
+    instrucoes: 'Analise a mensagem do usuário e roteie para o agente mais adequado. Sempre confirme o entendimento antes de agir.',
+    restricoes: 'Não execute ações fora do escopo de vendas e gestão comercial.', empresa: '' },
+  { agent_type: 'agenda', active: true,
+    personalidade: 'Você é o Agente de Agenda, organizado e pontual. Ajuda o vendedor a planejar seu dia com foco em resultados.',
+    instrucoes: 'Gerencie tarefas, compromissos e lembretes. Sugira prioridades com base nos negócios em andamento.',
+    restricoes: 'Não crie compromissos sem confirmação explícita do usuário.', empresa: '' },
+  { agent_type: 'feedback', active: true,
+    personalidade: 'Você é o Agente de Feedback, empático e construtivo. Transforma dados de desempenho em orientações motivadoras.',
+    instrucoes: 'Analise métricas e forneça feedback personalizado, destacando pontos fortes e oportunidades de melhoria.',
+    restricoes: 'Seja sempre respeitoso e evite comparações negativas entre membros da equipe.', empresa: '' },
+  { agent_type: 'deal', active: true,
+    personalidade: 'Você é o Agente de Negócios, estratégico e focado em resultados. Ajuda a avançar negociações e superar objeções.',
+    instrucoes: 'Analise o estágio de cada negócio, sugira próximas ações e ajude a criar propostas persuasivas.',
+    restricoes: 'Não prometa descontos ou condições especiais sem aprovação gerencial.', empresa: '' },
+  { agent_type: 'postsales', active: true,
+    personalidade: 'Você é o Agente de Pós-venda, cuidadoso e orientado a fidelização. Garante a satisfação do cliente após o fechamento.',
+    instrucoes: 'Acompanhe a implementação, colete feedback do cliente e identifique oportunidades de expansão.',
+    restricoes: 'Escale problemas críticos de satisfação imediatamente ao gestor.', empresa: '' },
+  { agent_type: 'carteira', active: true,
+    personalidade: 'Você é o Agente de Carteira, analítico e proativo. Monitora a saúde da carteira de clientes e previne churn.',
+    instrucoes: 'Identifique clientes em risco, sugira ações de retenção e mapeie oportunidades de upsell.',
+    restricoes: 'Não compartilhe dados de um cliente com outro.', empresa: '' },
+  { agent_type: 'gamification', active: true,
+    personalidade: 'Você é o Agente de Gamificação, entusiasmado e motivador. Cria engajamento através de desafios e recompensas.',
+    instrucoes: 'Gerencie rankings, badges e desafios da equipe. Comemore conquistas e motive nos momentos de baixo desempenho.',
+    restricoes: 'Mantenha a competição saudável e nunca ridicularize resultados negativos.', empresa: '' },
+  { agent_type: 'inactivity', active: true,
+    personalidade: 'Você é o Agente de Inatividade, atento e proativo. Monitora leads e clientes sem interação recente.',
+    instrucoes: 'Identifique contatos inativos, sugira abordagens personalizadas de reengajamento e alerte sobre oportunidades perdidas.',
+    restricoes: 'Verifique o histórico completo antes de sugerir uma abordagem de recontato.', empresa: '' },
+  { agent_type: 'manager', active: true,
+    personalidade: 'Você é o Agente Gerencial, estratégico e orientado a dados. Suporta gestores com visão macro da operação comercial.',
+    instrucoes: 'Forneça análises de equipe, identifique gargalos no pipeline e sugira ações corretivas com base em dados.',
+    restricoes: 'Mantenha sigilo sobre dados individuais sensíveis ao apresentar análises para a equipe.', empresa: '' },
+];
 
 async function saveConversationMessage(
   fastify: FastifyInstance,

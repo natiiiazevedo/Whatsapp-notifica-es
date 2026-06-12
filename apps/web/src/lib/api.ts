@@ -1,5 +1,16 @@
 'use client';
 
+export interface AgentConfig {
+  agent_type: string;
+  active: boolean;
+  personalidade: string;
+  instrucoes: string;
+  restricoes: string;
+  empresa: string;
+  updated_at?: string;
+  updated_by_name?: string;
+}
+
 const API_BASE = '/api';
 
 function getToken(): string | null {
@@ -95,6 +106,15 @@ export const api = {
     insights: () => apiFetch<unknown[]>('/agents/insights'),
     markInsightRead: (id: string) =>
       apiFetch<{ success: boolean }>(`/agents/insights/${id}/read`, { method: 'PATCH' }),
+    configs: {
+      list: () => apiFetch<AgentConfig[]>('/agents/configs'),
+      get: (type: string) => apiFetch<AgentConfig>(`/agents/configs/${type}`),
+      update: (type: string, data: Partial<AgentConfig>) =>
+        apiFetch<{ success: boolean }>(`/agents/configs/${type}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }),
+    },
   },
 
   tasks: {

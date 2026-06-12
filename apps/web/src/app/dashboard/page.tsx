@@ -8,7 +8,8 @@ import { DealCard } from '@/components/DealCard';
 import { TeamMetricsGrid, RevenueChart, RankingTable } from '@/components/TeamMetrics';
 import { AgendaBoard } from '@/components/AgendaBoard';
 import { SalespersonKPIs, TeamKPIsTable } from '@/components/DailyKPIs';
-import { Bell, LayoutDashboard, MessageSquare, Trophy, LogOut, CalendarDays, AlertCircle, Network } from 'lucide-react';
+import { Bell, LayoutDashboard, MessageSquare, Trophy, LogOut, CalendarDays, AlertCircle, Network, Settings } from 'lucide-react';
+import { AgentSettings } from '@/components/AgentSettings';
 import type { Deal } from '@sales/shared';
 
 interface DashboardData {
@@ -20,7 +21,7 @@ interface DashboardData {
   gamificacao: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
-type Tab = 'overview' | 'agenda' | 'chat' | 'ranking' | 'lab';
+type Tab = 'overview' | 'agenda' | 'chat' | 'ranking' | 'lab' | 'agents';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'text-red-600 bg-red-50 border-red-200',
@@ -98,16 +99,17 @@ export default function DashboardPage() {
             { key: 'overview', label: 'Painel',         icon: <LayoutDashboard className="w-4 h-4" /> },
             { key: 'chat',     label: 'Chat com IA',    icon: <MessageSquare className="w-4 h-4" /> },
             { key: 'ranking',  label: 'Ranking',         icon: <Trophy className="w-4 h-4" /> },
+            { key: 'agents',   label: 'Agentes IA',      icon: <Settings className="w-4 h-4" /> },
             { key: 'lab',      label: 'Agent Lab',       icon: <Network className="w-4 h-4" /> },
           ].map(item => (
             <button
               key={item.key}
               onClick={() => setTab(item.key as Tab)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === item.key && item.key !== 'lab'
-                  ? 'bg-blue-50 text-blue-700'
-                  : tab === item.key && item.key === 'lab'
+                tab === item.key && item.key === 'lab'
                   ? 'bg-slate-900 text-blue-400'
+                  : tab === item.key
+                  ? 'bg-blue-50 text-blue-700'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -252,6 +254,20 @@ export default function DashboardPage() {
           <div className="p-6 space-y-6">
             <h1 className="text-xl font-bold">Ranking da Equipe</h1>
             <RankingTable data={ranking as Parameters<typeof RankingTable>[0]['data']} />
+          </div>
+        )}
+
+        {tab === 'agents' && (
+          <div className="p-6 space-y-6 max-w-5xl">
+            <div>
+              <h1 className="text-xl font-bold">Agentes IA</h1>
+              <p className="text-sm text-muted-foreground">
+                {isManager
+                  ? 'Personalize a personalidade e instruções de cada agente para sua equipe'
+                  : 'Visualize os agentes disponíveis na plataforma'}
+              </p>
+            </div>
+            <AgentSettings isManager={isManager} />
           </div>
         )}
 
