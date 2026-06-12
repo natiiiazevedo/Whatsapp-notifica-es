@@ -60,9 +60,11 @@ export default function DashboardPage() {
       } else {
         setKpis(kpiData as Record<string, unknown>);
       }
-    }).catch(() => {
-      localStorage.removeItem('sales_token');
-      window.location.href = '/';
+    }).catch((err: Error) => {
+      if (err.message?.includes('401') || err.message?.includes('nválid')) {
+        localStorage.removeItem('sales_token');
+        window.location.href = '/';
+      }
     }).finally(() => setLoading(false));
   }, []);
 
