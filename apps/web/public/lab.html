@@ -3,870 +3,375 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent Lab — Sales Platform</title>
+<title>Agent Lab — Galáxia</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #08090D;
-    --surface: #0D1117;
-    --surface2: #141821;
-    --border: #1A2035;
-    --border2: #1E2A45;
-    --text: #E2E8F0;
-    --muted: #475569;
-    --muted2: #334155;
-    --blue: #3B82F6;
-    --blue-dim: #1D4ED830;
-    --green: #22C55E;
-    --purple: #A855F7;
-    --orange: #F97316;
-    --pink: #EC4899;
-    --lblue: #60A5FA;
-    --gold: #EAB308;
-    --teal: #14B8A6;
-    --red: #EF4444;
-  }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
-  * { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
-
-  /* Layout */
-  .app { display: flex; flex-direction: column; height: 100vh; }
-  .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
-  .header-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: .5px; }
-  .header-logo span { width: 28px; height: 28px; background: var(--blue-dim); border: 1px solid #3B82F640; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
-  .header-status { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--muted); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 5px; animation: pulse 2s infinite; }
-  .badge { background: var(--surface2); border: 1px solid var(--border2); border-radius: 20px; padding: 2px 10px; font-size: 11px; }
-
-  .body { display: flex; flex: 1; overflow: hidden; }
-
-  /* Graph side */
-  .graph-side { display: flex; flex-direction: column; width: 52%; border-right: 1px solid var(--border); }
-  .graph-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  svg#graph { width: 100%; max-width: 500px; overflow: visible; }
-
-  /* Info bar */
-  .agent-info { padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-  .agent-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .agent-info-text p:first-child { font-size: 13px; font-weight: 600; }
-  .agent-info-text p:last-child { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .agent-mode { margin-left: auto; font-size: 11px; border-radius: 20px; padding: 3px 10px; }
-
-  /* Chat side */
-  .chat-side { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-
-  /* Activity log */
-  .activity { background: var(--surface); border-bottom: 1px solid var(--border); overflow: hidden; transition: max-height .25s ease; }
-  .activity-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
-  .activity-header:hover { color: #94A3B8; }
-  .activity-list { padding: 4px 16px 10px; max-height: 120px; overflow-y: auto; }
-  .activity-item { display: flex; align-items: flex-start; gap: 8px; font-size: 11px; padding: 2px 0; }
-  .activity-icon { flex-shrink: 0; margin-top: 1px; font-size: 10px; }
-  .activity-text { color: var(--muted); flex: 1; }
-  .activity-time { color: var(--muted2); font-size: 10px; flex-shrink: 0; }
-  .activity-agent { font-weight: 600; }
-  .cnt { background: var(--surface2); border-radius: 20px; padding: 1px 7px; margin-left: 6px; font-size: 10px; color: #94A3B8; }
-
-  /* Messages */
-  .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-  .empty-state { margin: auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .empty-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: #3B82F610; border: 1px solid #3B82F630; }
-  .empty-title { font-size: 13px; color: #94A3B8; font-weight: 500; }
-  .empty-sub { font-size: 11px; color: var(--muted2); margin-top: 2px; }
-  .quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 8px; }
-  .qp { font-size: 11px; border-radius: 20px; padding: 5px 12px; cursor: pointer; border: 1px solid; transition: opacity .2s; }
-  .qp:hover { opacity: .75; }
-
-  .msg { display: flex; gap: 8px; max-width: 100%; }
-  .msg.user { flex-direction: row-reverse; }
-  .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 2px; }
-  .msg-body { display: flex; flex-direction: column; max-width: 82%; }
-  .msg.user .msg-body { align-items: flex-end; }
-  .msg-label { font-size: 10px; margin-bottom: 3px; padding: 0 2px; font-weight: 600; }
-  .msg-bubble { border-radius: 14px; padding: 9px 14px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
-  .msg.user .msg-bubble { background: var(--blue); color: #fff; border-top-right-radius: 3px; }
-  .msg.assistant .msg-bubble { background: var(--surface); border: 1px solid var(--border); color: #CBD5E1; border-top-left-radius: 3px; }
-  .cursor { display: inline-block; width: 2px; height: 13px; background: var(--blue); margin-left: 2px; vertical-align: middle; animation: blink .8s step-end infinite; }
-
-  /* Input */
-  .input-area { padding: 12px 14px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
-  .input-area input { flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 12px; padding: 9px 14px; font-size: 13px; color: var(--text); outline: none; transition: border-color .2s; }
-  .input-area input:focus { border-color: var(--blue); }
-  .input-area input::placeholder { color: var(--muted2); }
-  .send-btn { width: 36px; height: 36px; border-radius: 10px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: opacity .2s; flex-shrink: 0; }
-  .send-btn:disabled { opacity: .3; cursor: default; }
-
-  /* SVG nodes */
-  .node { cursor: pointer; }
-  .node circle, .node text { transition: all .2s; }
-
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-  @keyframes ping { 0%{transform:scale(1);opacity:.5} 70%,100%{transform:scale(1.5);opacity:0} }
-  @keyframes travel {
-    0% { offset-distance: 0% }
-    100% { offset-distance: 100% }
-  }
-
-  .spinning-border { animation: spin 1.5s linear infinite; transform-origin: center; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#020208;color:#E2E8F0;font-family:system-ui,-apple-system,sans-serif;cursor:crosshair}
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;display:flex;height:100vh}
+.gal{flex:0 0 63%;position:relative;overflow:hidden}
+.gal svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#pl{position:absolute;inset:0}
+.pw{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:10}
+.pb{border-radius:50%;position:relative;transition:transform .3s,box-shadow .4s}
+.pw:hover .pb{transform:scale(1.25)!important}
+.pring{position:absolute;top:50%;left:50%;border-radius:50%;border:2px solid;transform:translate(-50%,-50%) scaleY(0.22);pointer-events:none}
+.pname{position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);font-size:8px;white-space:nowrap;letter-spacing:.8px;text-transform:uppercase;pointer-events:none;opacity:.65}
+.chat{flex:1;display:flex;flex-direction:column;background:rgba(3,5,18,.92);border-left:1px solid rgba(80,100,200,.18);backdrop-filter:blur(30px)}
+.hud{padding:13px 15px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(80,100,200,.15);display:flex;gap:11px;align-items:center;flex-shrink:0}
+.hud-pl{width:32px;height:32px;border-radius:50%;flex-shrink:0}
+.hud-lbl{font-size:13px;font-weight:600}
+.hud-dsc{font-size:10.5px;color:#475569;margin-top:2px}
+.hud-mode{margin-left:auto;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid;flex-shrink:0}
+.logw{background:rgba(0,0,0,.2);border-bottom:1px solid rgba(80,100,200,.15);overflow:hidden;transition:max-height .25s;flex-shrink:0}
+.logh{padding:7px 14px;font-size:11px;color:#475569;cursor:pointer;display:flex;justify-content:space-between;user-select:none}
+.logh:hover{color:#94A3B8}
+.logl{padding:0 14px 8px;max-height:108px;overflow-y:auto}
+.li{font-size:10px;padding:2px 0;display:flex;gap:6px;align-items:flex-start}
+.lic{flex-shrink:0;font-size:9px;margin-top:1px}
+.lit{color:#475569;flex:1}
+.lim{color:#1E293B;font-size:9px;flex-shrink:0}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:rgba(80,100,200,.2) transparent}
+.empty{margin:auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.ei{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.18)}
+.et{font-size:12px;color:#94A3B8;font-weight:500}
+.es{font-size:10.5px;color:#334155}
+.qbs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.qb{font-size:10.5px;padding:5px 11px;border-radius:20px;cursor:pointer;border:1px solid;background:transparent;transition:opacity .2s,transform .1s;color:inherit}
+.qb:hover{opacity:.7;transform:scale(.97)}
+.msg{display:flex;gap:8px}
+.msg.user{flex-direction:row-reverse}
+.mav{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px;font-weight:700}
+.mbod{display:flex;flex-direction:column;max-width:86%}
+.msg.user .mbod{align-items:flex-end}
+.mfrom{font-size:9.5px;font-weight:600;margin-bottom:3px;padding:0 2px}
+.mbub{padding:8px 13px;border-radius:14px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user .mbub{background:#2563EB;color:#fff;border-top-right-radius:3px}
+.msg.bot .mbub{background:rgba(255,255,255,.04);border:1px solid rgba(80,100,200,.2);color:#CBD5E1;border-top-left-radius:3px}
+.cur{display:inline-block;width:2px;height:12px;background:#60A5FA;margin-left:2px;vertical-align:middle;animation:blink .8s step-end infinite}
+.inpb{padding:10px 12px;background:rgba(255,255,255,.02);border-top:1px solid rgba(80,100,200,.15);display:flex;gap:8px;align-items:center;flex-shrink:0}
+.inpb input{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(80,100,200,.2);border-radius:10px;padding:8px 13px;font-size:12.5px;color:#E2E8F0;outline:none;transition:border-color .2s}
+.inpb input:focus{border-color:rgba(96,165,250,.5)}
+.inpb input::placeholder{color:#1E293B}
+.sbtn{width:34px;height:34px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;transition:opacity .2s,transform .1s;flex-shrink:0}
+.sbtn:hover{opacity:.82;transform:scale(.95)}
+.sbtn:disabled{opacity:.25;cursor:default;transform:none}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(80,100,200,.2);border-radius:3px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
 </style>
 </head>
 <body>
+<canvas id="bg"></canvas>
 <div class="app">
-
-  <!-- Header -->
-  <div class="header">
-    <div class="header-logo">
-      <span>⚡</span>
-      Agent Lab — Sales Platform
-    </div>
-    <div class="header-status">
-      <span><span class="dot"></span>9 agentes online</span>
-      <span class="badge" id="status-badge">Aguardando</span>
-    </div>
+  <div class="gal" id="gal">
+    <svg id="oSvg"></svg>
+    <div id="pl"></div>
   </div>
-
-  <div class="body">
-
-    <!-- Graph -->
-    <div class="graph-side">
-      <div class="graph-wrap">
-        <svg id="graph" viewBox="0 0 500 430">
-          <defs>
-            <filter id="glow-blue"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            <filter id="glow-soft"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <!-- Lines drawn by JS -->
-          <g id="lines"></g>
-          <!-- Nodes drawn by JS -->
-          <g id="nodes"></g>
-        </svg>
+  <div class="chat">
+    <div class="hud">
+      <div class="hud-pl" id="hPl"></div>
+      <div><div class="hud-lbl" id="hLbl">Orquestrador</div><div class="hud-dsc" id="hDsc">Roteador inteligente</div></div>
+      <div class="hud-mode" id="hMode">Auto-roteamento</div>
+    </div>
+    <div class="logw" id="logw" style="max-height:140px">
+      <div class="logh" onclick="toggleLog()">
+        <span>◉ Atividade <span id="lcnt" style="background:rgba(80,100,200,.15);border-radius:20px;padding:1px 7px;font-size:9px;margin-left:4px;color:#94A3B8">0</span></span>
+        <span id="lchev">▾</span>
       </div>
-
-      <!-- Selected agent info -->
-      <div class="agent-info">
-        <div class="agent-icon" id="sel-icon">⚡</div>
-        <div class="agent-info-text">
-          <p id="sel-label" style="color:var(--blue)">Orquestrador</p>
-          <p id="sel-desc">Roteador inteligente — distribui para o agente certo</p>
-        </div>
-        <div class="agent-mode badge" id="sel-mode" style="color:var(--blue);border-color:#3B82F630;background:#3B82F610">Auto-roteamento</div>
+      <div class="logl" id="logl"><div class="li"><span class="lic" style="color:#1E293B">·</span><span class="lit" style="color:#1E293B">Nenhuma atividade — inicie uma conversa.</span></div></div>
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="empty" id="emp">
+        <div class="ei">🌌</div>
+        <div><p class="et">Clique em um planeta para começar</p><p class="es">Ou use os atalhos abaixo</p></div>
+        <div class="qbs" id="qbs"></div>
       </div>
     </div>
-
-    <!-- Chat -->
-    <div class="chat-side">
-      <!-- Activity log -->
-      <div class="activity" id="activity-panel" style="max-height:160px">
-        <div class="activity-header" onclick="toggleActivity()">
-          <span>📡 Log de atividade <span class="cnt" id="act-cnt">0</span></span>
-          <span id="act-chevron">▾</span>
-        </div>
-        <div class="activity-list" id="activity-list">
-          <div class="activity-item"><span class="activity-icon" style="color:#334155">·</span><span class="activity-text" style="color:var(--muted2)">Nenhuma atividade ainda. Inicie uma conversa.</span></div>
-        </div>
-      </div>
-
-      <!-- Messages -->
-      <div class="messages" id="messages">
-        <div class="empty-state" id="empty-state">
-          <div class="empty-icon">⚡</div>
-          <div>
-            <p class="empty-title">Selecione um agente e comece</p>
-            <p class="empty-sub">Clique em um nó do grafo ou use os atalhos abaixo</p>
-          </div>
-          <div class="quick-prompts" id="quick-prompts"></div>
-        </div>
-      </div>
-
-      <!-- Input -->
-      <div class="input-area">
-        <input type="text" id="chat-input" placeholder="Falar com Orquestrador…" />
-        <button class="send-btn" id="send-btn" style="background:var(--blue)" onclick="sendMessage()">➤</button>
-      </div>
+    <div class="inpb">
+      <input id="inp" type="text" placeholder="Falar com Orquestrador…"/>
+      <button class="sbtn" id="sbtn" onclick="send()">➤</button>
     </div>
   </div>
 </div>
-
 <script>
-// ─── Agent config ────────────────────────────────────────────
-const AGENTS = {
-  orchestrator: { label:'Orquestrador', icon:'⚡', color:'#3B82F6', desc:'Roteador inteligente — distribui para o agente certo', mode:'Auto-roteamento' },
-  feedback:     { label:'Coach 1:1',    icon:'🎯', color:'#A855F7', desc:'Feedback pessoal e análise de desempenho individual', mode:'Direto' },
-  carteira:     { label:'Carteira',     icon:'💼', color:'#22C55E', desc:'Portfólio de clientes e priorização de contatos', mode:'Direto' },
-  deal:         { label:'Deal Intel',   icon:'🔍', color:'#F97316', desc:'Health score e análise cirúrgica de negócios', mode:'Direto' },
-  postsales:    { label:'Pós-Vendas',   icon:'🤝', color:'#EC4899', desc:'Churn risk, upsell e reativação de clientes', mode:'Direto' },
-  manager:      { label:'Gestão',       icon:'📊', color:'#60A5FA', desc:'Visão consolidada da equipe e forecast', mode:'Direto' },
-  gamification: { label:'Gamificação',  icon:'🏆', color:'#EAB308', desc:'Rankings, XP, conquistas e motivação', mode:'Direto' },
-  inactivity:   { label:'Monitor',      icon:'🚨', color:'#EF4444', desc:'Alertas automáticos de inatividade', mode:'Direto' },
-  agenda:       { label:'Agenda',       icon:'📅', color:'#14B8A6', desc:'Tarefas, KPIs do dia e produtividade', mode:'Direto' },
+const A={
+  orchestrator:{label:'Orquestrador',desc:'Roteador inteligente — distribui para o agente certo',color:'#FFD700',size:50,orbit:0,speed:0,phase:0,bg:'radial-gradient(circle at 33% 28%, #FFFDE7, #FFD700 45%, #E65100 85%)'},
+  agenda:      {label:'Agenda',     desc:'Tarefas, KPIs do dia e produtividade',           color:'#14B8A6',size:18,orbit:.115,speed:.00125,phase:.5,  bg:'radial-gradient(circle at 33% 28%, #5EEAD4, #14B8A6 50%, #065F54)'},
+  feedback:    {label:'Coach 1:1',  desc:'Feedback pessoal e análise de desempenho',        color:'#A855F7',size:24,orbit:.178,speed:.00088,phase:1.2, bg:'radial-gradient(circle at 33% 28%, #EDE9FE, #A855F7 45%, #581C87)',ring:true},
+  deal:        {label:'Deal Intel', desc:'Health score e análise cirúrgica de negócios',    color:'#F97316',size:28,orbit:.245,speed:.00072,phase:2.4, bg:'radial-gradient(circle at 33% 28%, #FED7AA, #F97316 45%, #7C2D12)'},
+  postsales:   {label:'Pós-Vendas', desc:'Churn risk, upsell e reativação de clientes',     color:'#EC4899',size:20,orbit:.308,speed:.00057,phase:.8,  bg:'radial-gradient(circle at 33% 28%, #FCE7F3, #EC4899 45%, #831843)'},
+  carteira:    {label:'Carteira',   desc:'Portfólio de clientes e priorização',             color:'#22C55E',size:26,orbit:.372,speed:.00046,phase:3.8, bg:'radial-gradient(circle at 33% 28%, #DCFCE7, #22C55E 45%, #14532D)'},
+  gamification:{label:'Gamificação',desc:'Rankings, XP, conquistas e motivação',            color:'#EAB308',size:22,orbit:.432,speed:.00039,phase:5.2, bg:'radial-gradient(circle at 33% 28%, #FEF9C3, #EAB308 45%, #713F12)',ring:true},
+  inactivity:  {label:'Monitor',    desc:'Alertas automáticos de inatividade',              color:'#EF4444',size:19,orbit:.49, speed:.00033,phase:1.6, bg:'radial-gradient(circle at 33% 28%, #FEE2E2, #EF4444 45%, #7F1D1D)'},
+  manager:     {label:'Gestão',     desc:'Dashboard gerencial e forecast da equipe',        color:'#60A5FA',size:32,orbit:.545,speed:.00026,phase:4.5, bg:'radial-gradient(circle at 33% 28%, #DBEAFE, #60A5FA 45%, #1E3A8A)',ring:true},
 };
+const SPOKES=['agenda','feedback','deal','postsales','carteira','gamification','inactivity','manager'];
+let sel='orchestrator',streaming=false,logOpen=true,logCnt=0,msgN=0;
+let mx=.5,my=.5,GW=0,GH=0,CX=0,CY=0;
+let ang={};SPOKES.forEach(k=>ang[k]=A[k].phase);
 
-const SPOKES = ['agenda','feedback','deal','postsales','gamification','inactivity','carteira','manager'];
-const CX=250, CY=208, R=162;
+// ── CANVAS STARFIELD ──
+const cv=document.getElementById('bg'),ctx=cv.getContext('2d');
+let stars=[];
+const nebulae=[{x:.18,y:.28,rr:.32,c:'#1A0840',d:.12},{x:.78,y:.72,rr:.26,c:'#001840',d:.09},{x:.55,y:.1,rr:.22,c:'#400010',d:.13},{x:.1,y:.78,rr:.24,c:'#003820',d:.08}];
 
-function pos(key) {
-  if (key === 'orchestrator') return {x:CX, y:CY};
-  const idx = SPOKES.indexOf(key);
-  const angle = (idx / SPOKES.length) * Math.PI * 2 - Math.PI/2;
-  return { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) };
+function initStars(){
+  cv.width=innerWidth;cv.height=innerHeight;stars=[];
+  const add=(n,rMin,rMax,opMin,opMax,dMin,dMax)=>{for(let i=0;i<n;i++)stars.push({x:Math.random(),y:Math.random(),r:rMin+Math.random()*(rMax-rMin),op:opMin+Math.random()*(opMax-opMin),d:dMin+Math.random()*(dMax-dMin),tw:Math.random()*Math.PI*2,ts:.0003+Math.random()*.002,col:Math.random()>.1?'#fff':(Math.random()>.5?'#C8DEFF':'#FFE8C8')})};
+  add(280,.2,.7,.2,.55,0,.3);add(90,.7,1.5,.4,.85,.2,.55);add(22,1.5,2.5,.6,1.0,.5,.9);
 }
 
-// ─── State ───────────────────────────────────────────────────
-let selected = 'orchestrator';
-let active = null;
-let isStreaming = false;
-let activityItems = [];
-let activityOpen = true;
-let msgIdCounter = 0;
-
-// ─── Build SVG ───────────────────────────────────────────────
-function buildGraph() {
-  const linesG = document.getElementById('lines');
-  const nodesG = document.getElementById('nodes');
-  linesG.innerHTML = '';
-  nodesG.innerHTML = '';
-
-  // Defs for gradients
-  const svg = document.getElementById('graph');
-  let defs = svg.querySelector('defs');
-
-  SPOKES.forEach(key => {
-    const cfg = AGENTS[key];
-    const p = pos(key);
-    const oc = pos('orchestrator');
-
-    // Gradient
-    const grad = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
-    grad.id = `lg-${key}`;
-    grad.setAttribute('x1', oc.x); grad.setAttribute('y1', oc.y);
-    grad.setAttribute('x2', p.x);  grad.setAttribute('y2', p.y);
-    grad.setAttribute('gradientUnits','userSpaceOnUse');
-    const s1 = document.createElementNS('http://www.w3.org/2000/svg','stop');
-    s1.setAttribute('offset','0%'); s1.setAttribute('stop-color','#3B82F6'); s1.setAttribute('stop-opacity','0.3');
-    const s2 = document.createElementNS('http://www.w3.org/2000/svg','stop');
-    s2.setAttribute('offset','100%'); s2.setAttribute('stop-color', cfg.color); s2.setAttribute('stop-opacity','0.3');
-    grad.appendChild(s1); grad.appendChild(s2);
-    defs.appendChild(grad);
-
-    // Path (for animateMotion)
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.id = `p-${key}`;
-    path.setAttribute('d', `M${oc.x},${oc.y} L${p.x},${p.y}`);
-    path.setAttribute('fill','none'); path.setAttribute('stroke','none');
-    linesG.appendChild(path);
-
-    // Line
-    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.id = `line-${key}`;
-    line.setAttribute('x1',oc.x); line.setAttribute('y1',oc.y);
-    line.setAttribute('x2',p.x);  line.setAttribute('y2',p.y);
-    line.setAttribute('stroke',`url(#lg-${key})`);
-    line.setAttribute('stroke-width','1');
-    line.setAttribute('stroke-dasharray','4 5');
-    linesG.appendChild(line);
-
-    // Traveling packet (hidden by default)
-    const pkt = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    pkt.id = `pkt-${key}`;
-    pkt.setAttribute('r','3');
-    pkt.setAttribute('fill', cfg.color);
-    pkt.setAttribute('opacity','0');
-    linesG.appendChild(pkt);
+function drawBg(t){
+  const W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createRadialGradient(W*.5,H*.5,0,W*.5,H*.5,Math.max(W,H)*.85);
+  g.addColorStop(0,'#08091A');g.addColorStop(.5,'#030510');g.addColorStop(1,'#010206');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  nebulae.forEach(n=>{
+    const px=n.x*W+(mx-.5)*n.d*90,py=n.y*H+(my-.5)*n.d*65,rw=n.rr*Math.max(W,H);
+    const ng=ctx.createRadialGradient(px,py,0,px,py,rw);
+    ng.addColorStop(0,n.c+'22');ng.addColorStop(.5,n.c+'0D');ng.addColorStop(1,'transparent');
+    ctx.fillStyle=ng;ctx.fillRect(0,0,W,H);
   });
-
-  // Draw nodes (spokes first, then orchestrator on top)
-  [...SPOKES, 'orchestrator'].forEach(key => {
-    const cfg = AGENTS[key];
-    const p = pos(key);
-    const isOrch = key === 'orchestrator';
-    const nr = isOrch ? 33 : 25;
-
-    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.id = `node-${key}`;
-    g.classList.add('node');
-    g.setAttribute('transform', `translate(${p.x},${p.y})`);
-    g.addEventListener('click', () => selectAgent(key));
-
-    // Ping ring
-    const ping = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    ping.id = `ping-${key}`;
-    ping.setAttribute('r', nr+10); ping.setAttribute('fill','none');
-    ping.setAttribute('stroke', cfg.color); ping.setAttribute('stroke-width','0');
-    ping.setAttribute('opacity','0');
-    g.appendChild(ping);
-
-    // Selection ring
-    const selRing = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    selRing.id = `selring-${key}`;
-    selRing.setAttribute('r', nr+5); selRing.setAttribute('fill','none');
-    selRing.setAttribute('stroke', cfg.color); selRing.setAttribute('stroke-width','0');
-    selRing.setAttribute('stroke-dasharray','4 3'); selRing.setAttribute('opacity','0');
-    g.appendChild(selRing);
-
-    // Outer
-    const outer = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    outer.setAttribute('r', nr);
-    outer.setAttribute('fill', cfg.color); outer.setAttribute('fill-opacity','0.12');
-    outer.setAttribute('stroke', cfg.color); outer.setAttribute('stroke-width','1.5'); outer.setAttribute('stroke-opacity','0.5');
-    g.appendChild(outer);
-
-    // Inner
-    const inner = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    inner.id = `inner-${key}`;
-    inner.setAttribute('r', nr-8);
-    inner.setAttribute('fill', cfg.color); inner.setAttribute('fill-opacity','0.22');
-    g.appendChild(inner);
-
-    // Icon
-    const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
-    icon.setAttribute('text-anchor','middle'); icon.setAttribute('dominant-baseline','central');
-    icon.setAttribute('font-size', isOrch ? '16' : '13');
-    icon.textContent = cfg.icon;
-    g.appendChild(icon);
-
-    // Label
-    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-    label.id = `lbl-${key}`;
-    label.setAttribute('y', nr+13); label.setAttribute('text-anchor','middle');
-    label.setAttribute('font-size','9.5'); label.setAttribute('fill','#64748B'); label.setAttribute('font-family','sans-serif');
-    label.textContent = cfg.label;
-    g.appendChild(label);
-
-    nodesG.appendChild(g);
+  stars.forEach(s=>{
+    const tw=Math.sin(s.tw+t*s.ts)*.5+.5;
+    ctx.globalAlpha=s.op*(.5+tw*.5);ctx.fillStyle=s.col;
+    ctx.beginPath();ctx.arc(s.x*W+(mx-.5)*s.d*65,s.y*H+(my-.5)*s.d*45,s.r,0,Math.PI*2);ctx.fill();
   });
-
-  selectAgent('orchestrator');
+  ctx.globalAlpha=1;
 }
 
-// ─── Select agent ────────────────────────────────────────────
-function selectAgent(key) {
-  // Deselect previous
-  const prev = document.getElementById(`selring-${selected}`);
-  if (prev) { prev.setAttribute('stroke-width','0'); prev.setAttribute('opacity','0'); }
-  const prevLbl = document.getElementById(`lbl-${selected}`);
-  if (prevLbl) prevLbl.setAttribute('fill','#64748B');
-
-  selected = key;
-  const cfg = AGENTS[key];
-
-  // Select new
-  const ring = document.getElementById(`selring-${key}`);
-  if (ring) { ring.setAttribute('stroke-width','2'); ring.setAttribute('opacity','1'); }
-  const lbl = document.getElementById(`lbl-${key}`);
-  if (lbl) { lbl.setAttribute('fill', cfg.color); }
-
-  // Update info bar
-  document.getElementById('sel-icon').textContent = cfg.icon;
-  document.getElementById('sel-icon').style.background = cfg.color+'20';
-  document.getElementById('sel-icon').style.border = `1px solid ${cfg.color}50`;
-  document.getElementById('sel-label').textContent = cfg.label;
-  document.getElementById('sel-label').style.color = cfg.color;
-  document.getElementById('sel-desc').textContent = cfg.desc;
-  document.getElementById('sel-mode').textContent = cfg.mode;
-  document.getElementById('sel-mode').style.color = cfg.color;
-  document.getElementById('sel-mode').style.borderColor = cfg.color+'40';
-  document.getElementById('sel-mode').style.background = cfg.color+'15';
-
-  // Update input placeholder
-  document.getElementById('chat-input').placeholder = `Falar com ${cfg.label}…`;
-  document.getElementById('send-btn').style.background = cfg.color;
+// ── SVG ORBITS ──
+const svg=document.getElementById('oSvg');
+function buildOrbits(){
+  svg.innerHTML='';svg.setAttribute('viewBox',`0 0 ${GW} ${GH}`);
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  SPOKES.forEach(k=>{
+    const lg=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+    lg.id=`lg-${k}`;lg.setAttribute('gradientUnits','userSpaceOnUse');
+    [{o:'0%',c:'#FFD700',a:'.9'},{o:'100%',c:A[k].color,a:'.7'}].forEach(s=>{
+      const st=document.createElementNS('http://www.w3.org/2000/svg','stop');
+      st.setAttribute('offset',s.o);st.setAttribute('stop-color',s.c);st.setAttribute('stop-opacity',s.a);lg.appendChild(st);
+    });
+    defs.appendChild(lg);
+  });
+  svg.appendChild(defs);
+  SPOKES.forEach(k=>{
+    const r=A[k].orbit*Math.min(GW,GH);
+    const el=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    el.id=`oe-${k}`;el.setAttribute('cx',CX);el.setAttribute('cy',CY);
+    el.setAttribute('rx',r);el.setAttribute('ry',r*.44);
+    el.setAttribute('fill','none');el.setAttribute('stroke',A[k].color);
+    el.setAttribute('stroke-opacity','.07');el.setAttribute('stroke-width','1');el.setAttribute('stroke-dasharray','3 9');
+    svg.appendChild(el);
+  });
+  SPOKES.forEach(k=>{
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.id=`cl-${k}`;ln.setAttribute('x1',CX);ln.setAttribute('y1',CY);ln.setAttribute('x2',CX);ln.setAttribute('y2',CY);
+    ln.setAttribute('stroke',`url(#lg-${k})`);ln.setAttribute('stroke-opacity','0');ln.setAttribute('stroke-width','1.5');
+    svg.appendChild(ln);
+    for(let i=2;i>=0;i--){
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.id=`ct-${k}-${i}`;c.setAttribute('r',3-i*.6);c.setAttribute('fill',A[k].color);c.setAttribute('opacity','0');svg.appendChild(c);
+    }
+  });
 }
 
-// ─── Animate active connection ────────────────────────────────
-let pktIntervals = {};
+// ── PLANETS ──
+const plEl=document.getElementById('pl');
+function buildPlanets(){
+  plEl.innerHTML='';
+  const sw=document.createElement('div');
+  sw.id='sw';sw.style.cssText=`position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:20`;sw.onclick=()=>selectAgent('orchestrator');
+  const sb=document.createElement('div');
+  sb.style.cssText=`width:50px;height:50px;border-radius:50%;background:${A.orchestrator.bg};box-shadow:0 0 20px #FFD70080,0 0 45px #FFD70045,0 0 90px #FFD70020;animation:pulse 3s ease-in-out infinite;position:relative;display:flex;align-items:center;justify-content:center;font-size:20px`;
+  sb.textContent='☀';
+  [28,52,76].forEach((ex,i)=>{
+    const c=document.createElement('div');
+    c.style.cssText=`position:absolute;width:${50+ex}px;height:${50+ex}px;border-radius:50%;border:1px solid rgba(255,215,0,${.22-i*.06});top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse ${3.4+i*.6}s ease-in-out ${i*.4}s infinite;pointer-events:none`;
+    sb.appendChild(c);
+  });
+  const sl=document.createElement('div');
+  sl.style.cssText=`position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);font-size:8px;white-space:nowrap;color:rgba(255,215,0,.55);letter-spacing:.8px;text-transform:uppercase;pointer-events:none`;
+  sl.textContent='Orquestrador';
+  sw.appendChild(sb);sw.appendChild(sl);plEl.appendChild(sw);
+  SPOKES.forEach(k=>{
+    const cfg=A[k],w=document.createElement('div');
+    w.id=`pw-${k}`;w.className='pw';w.onclick=()=>selectAgent(k);
+    const b=document.createElement('div');
+    b.id=`pb-${k}`;b.className='pb';
+    b.style.cssText=`width:${cfg.size}px;height:${cfg.size}px;background:${cfg.bg};box-shadow:0 0 ${cfg.size/2}px ${cfg.color}60,0 0 ${cfg.size}px ${cfg.color}30`;
+    if(cfg.ring){const r=document.createElement('div');r.className='pring';r.style.cssText=`width:${cfg.size*1.85}px;height:${cfg.size*1.85}px;border-color:${cfg.color}55;top:50%;left:50%;`;b.appendChild(r);}
+    const nm=document.createElement('div');nm.className='pname';nm.style.color=cfg.color;nm.textContent=cfg.label;
+    w.appendChild(b);w.appendChild(nm);plEl.appendChild(w);
+  });
+  updateHUD('orchestrator');
+}
 
-function setActiveNode(key, on) {
-  if (!key || key === 'orchestrator') return;
+// ── SELECT ──
+function selectAgent(k){
+  sel=k;const cfg=A[k];
+  SPOKES.forEach(id=>{const b=document.getElementById(`pb-${id}`);if(b){b.style.transform='';b.style.boxShadow=`0 0 ${A[id].size/2}px ${A[id].color}60,0 0 ${A[id].size}px ${A[id].color}30`}});
+  if(k!=='orchestrator'){const b=document.getElementById(`pb-${k}`);if(b){b.style.transform='scale(1.18)';b.style.boxShadow=`0 0 ${cfg.size}px ${cfg.color}CC,0 0 ${cfg.size*2}px ${cfg.color}70,0 0 ${cfg.size*3.5}px ${cfg.color}30`}}
+  updateHUD(k);
+  document.getElementById('inp').placeholder=`Falar com ${cfg.label}…`;
+  document.getElementById('sbtn').style.background=cfg.color;
+}
 
-  const line = document.getElementById(`line-${key}`);
-  const ping = document.getElementById(`ping-${key}`);
-  const inner = document.getElementById(`inner-${key}`);
-  const pkt = document.getElementById(`pkt-${key}`);
+function updateHUD(k){
+  const cfg=A[k],hp=document.getElementById('hPl');
+  hp.style.cssText=`width:32px;height:32px;border-radius:50%;background:${cfg.bg};box-shadow:0 0 12px ${cfg.color}60;flex-shrink:0`;
+  const hl=document.getElementById('hLbl');hl.textContent=cfg.label;hl.style.color=cfg.color;
+  document.getElementById('hDsc').textContent=cfg.desc;
+  const hm=document.getElementById('hMode');
+  hm.textContent=k==='orchestrator'?'Auto-roteamento':'Direto';
+  hm.style.cssText=`margin-left:auto;font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid ${cfg.color}45;color:${cfg.color};background:${cfg.color}15;flex-shrink:0`;
+}
 
-  if (on) {
-    if (line) { line.setAttribute('stroke-width','2'); line.setAttribute('stroke-dasharray','none'); }
-    if (ping) { ping.setAttribute('stroke-width','2'); ping.setAttribute('opacity','0.5'); }
-    if (inner) { inner.setAttribute('fill-opacity','0.45'); }
-
-    // Animate packet
-    if (pktIntervals[key]) clearInterval(pktIntervals[key]);
-    const p1 = pos('orchestrator'), p2 = pos(key);
-    let t = 0;
-    pktIntervals[key] = setInterval(() => {
-      t = (t + 0.04) % 1;
-      const x = p1.x + (p2.x - p1.x) * t;
-      const y = p1.y + (p2.y - p1.y) * t;
-      if (pkt) { pkt.setAttribute('cx', x); pkt.setAttribute('cy', y); pkt.setAttribute('opacity','0.9'); }
-    }, 30);
+// ── CONNECTION ──
+let cInt={};
+function setConn(k,on){
+  if(!k||k==='orchestrator')return;
+  const cfg=A[k],ln=document.getElementById(`cl-${k}`);
+  if(on){
+    if(ln)ln.setAttribute('stroke-opacity','.65');
+    let t=0;if(cInt[k])clearInterval(cInt[k]);
+    cInt[k]=setInterval(()=>{
+      t=(t+.035)%1;const p=getPPos(k);
+      if(ln){ln.setAttribute('x2',p.x);ln.setAttribute('y2',p.y);}
+      for(let i=0;i<3;i++){const tt=Math.max(0,t-i*.06),c=document.getElementById(`ct-${k}-${i}`);if(c){c.setAttribute('cx',CX+(p.x-CX)*tt);c.setAttribute('cy',CY+(p.y-CY)*tt);c.setAttribute('opacity',(1-i*.28).toString());}}
+    },22);
+    const b=document.getElementById(`pb-${k}`);if(b)b.style.boxShadow=`0 0 ${cfg.size*1.5}px ${cfg.color}EE,0 0 ${cfg.size*3}px ${cfg.color}80,0 0 ${cfg.size*5}px ${cfg.color}40`;
   } else {
-    if (line) { line.setAttribute('stroke-width','1'); line.setAttribute('stroke-dasharray','4 5'); }
-    if (ping) { ping.setAttribute('stroke-width','0'); ping.setAttribute('opacity','0'); }
-    if (inner) { inner.setAttribute('fill-opacity','0.22'); }
-    if (pkt) pkt.setAttribute('opacity','0');
-    if (pktIntervals[key]) { clearInterval(pktIntervals[key]); delete pktIntervals[key]; }
+    if(ln)ln.setAttribute('stroke-opacity','0');
+    for(let i=0;i<3;i++){const c=document.getElementById(`ct-${k}-${i}`);if(c)c.setAttribute('opacity','0');}
+    if(cInt[k]){clearInterval(cInt[k]);delete cInt[k];}
+    const b=document.getElementById(`pb-${k}`);
+    if(b)b.style.boxShadow=k===sel?`0 0 ${cfg.size}px ${cfg.color}CC,0 0 ${cfg.size*2}px ${cfg.color}70`:`0 0 ${cfg.size/2}px ${cfg.color}60,0 0 ${cfg.size}px ${cfg.color}30`;
   }
 }
 
-// ─── Activity log ────────────────────────────────────────────
-const ACT_ICONS = { user:'↑', routing:'⟳', routed:'→', thinking:'…', tool_call:'⚙', tool_result:'✓', delta:'▸', done:'●', error:'✗' };
-const ACT_COLORS = { user:'#60A5FA', routing:'#A855F7', routed:'#22C55E', thinking:'#475569', tool_call:'#F97316', tool_result:'#22C55E', delta:'#475569', done:'#14B8A6', error:'#EF4444' };
-
-function addActivity(type, text, agentKey) {
-  const cfg = agentKey && AGENTS[agentKey] ? AGENTS[agentKey] : null;
-  const time = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const icon = ACT_ICONS[type] || '·';
-  const color = ACT_COLORS[type] || '#475569';
-
-  const div = document.createElement('div');
-  div.className = 'activity-item';
-  div.innerHTML = `
-    <span class="activity-icon" style="color:${color}">${icon}</span>
-    <span class="activity-text">
-      ${cfg ? `<span class="activity-agent" style="color:${cfg.color}">[${cfg.label}] </span>` : ''}
-      ${text}
-    </span>
-    <span class="activity-time">${time}</span>
-  `;
-
-  const list = document.getElementById('activity-list');
-  // Remove placeholder
-  const ph = list.querySelector('.activity-item');
-  if (ph && ph.querySelector('.activity-text')?.textContent?.includes('Nenhuma')) list.innerHTML = '';
-
-  list.insertBefore(div, list.firstChild);
-  if (list.children.length > 40) list.removeChild(list.lastChild);
-
-  activityItems.push({type, text, agentKey, time});
-  document.getElementById('act-cnt').textContent = activityItems.length;
+function getPPos(k){
+  const r=A[k].orbit*Math.min(GW,GH);
+  return{x:CX+r*Math.cos(ang[k])+(mx-.5)*8,y:CY+r*.44*Math.sin(ang[k])+(my-.5)*5};
 }
 
-function toggleActivity() {
-  activityOpen = !activityOpen;
-  document.getElementById('activity-panel').style.maxHeight = activityOpen ? '160px' : '37px';
-  document.getElementById('act-chevron').textContent = activityOpen ? '▾' : '▸';
+// ── LOG ──
+const LI={user:'↑',routing:'⟳',routed:'→',tool_call:'⚙',tool_result:'✓',delta:'▸',done:'●',error:'✗'};
+const LC={user:'#60A5FA',routing:'#A855F7',routed:'#22C55E',tool_call:'#F97316',tool_result:'#22C55E',delta:'#334155',done:'#14B8A6',error:'#EF4444'};
+function addLog(type,text,k){
+  const cfg=k?A[k]:null,t=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d=document.createElement('div');d.className='li';
+  d.innerHTML=`<span class="lic" style="color:${LC[type]||'#334155'}">${LI[type]||'·'}</span><span class="lit">${cfg?`<span style="color:${cfg.color};font-weight:600">[${cfg.label}] </span>`:''}${text}</span><span class="lim">${t}</span>`;
+  const ll=document.getElementById('logl');
+  if(ll.firstChild?.textContent?.includes('Nenhuma'))ll.innerHTML='';
+  ll.insertBefore(d,ll.firstChild);if(ll.children.length>30)ll.removeChild(ll.lastChild);
+  document.getElementById('lcnt').textContent=++logCnt;
 }
+function toggleLog(){logOpen=!logOpen;document.getElementById('logw').style.maxHeight=logOpen?'140px':'32px';document.getElementById('lchev').textContent=logOpen?'▾':'▸';}
 
-// ─── Messages ────────────────────────────────────────────────
-function addMessage(role, content, agentKey, streaming) {
-  const id = `msg-${++msgIdCounter}`;
-  const empty = document.getElementById('empty-state');
-  if (empty) empty.remove();
-
-  const cfg = agentKey ? AGENTS[agentKey] : AGENTS.orchestrator;
-  const msgs = document.getElementById('messages');
-
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.id = id;
-
-  if (role === 'assistant') {
-    div.innerHTML = `
-      <div class="msg-avatar" style="background:${cfg.color}20;border:1px solid ${cfg.color}40">${cfg.icon}</div>
-      <div class="msg-body">
-        <span class="msg-label" style="color:${cfg.color}">${cfg.label}</span>
-        <div class="msg-bubble">${streaming ? '<span class="cursor"></span>' : escHtml(content)}</div>
-      </div>`;
-  } else {
-    div.innerHTML = `
-      <div class="msg-body">
-        <div class="msg-bubble">${escHtml(content)}</div>
-      </div>`;
-  }
-
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-  return id;
+// ── MESSAGES ──
+function addMsg(role,content,k,isStr){
+  document.getElementById('emp')?.remove();
+  const id=`m-${++msgN}`,cfg=k?A[k]:A.orchestrator,msgs=document.getElementById('msgs');
+  const d=document.createElement('div');d.id=id;d.className=`msg ${role==='user'?'user':'bot'}`;
+  if(role!=='user'){d.innerHTML=`<div class="mav" style="background:${cfg.color}25;border:1px solid ${cfg.color}40;color:${cfg.color}">${cfg.label[0]}</div><div class="mbod"><div class="mfrom" style="color:${cfg.color}">${cfg.label}</div><div class="mbub">${isStr?'<span class="cur"></span>':esc(content)}</div></div>`;}
+  else{d.innerHTML=`<div class="mbod"><div class="mbub">${esc(content)}</div></div>`;}
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return id;
 }
-
-function updateMessage(id, content, streaming) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const bubble = el.querySelector('.msg-bubble');
-  if (!bubble) return;
-  bubble.innerHTML = escHtml(content) + (streaming ? '<span class="cursor"></span>' : '');
-  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+function updMsg(id,content,isStr){
+  const el=document.getElementById(id);if(!el)return;
+  const b=el.querySelector('.mbub');if(!b)return;
+  b.innerHTML=esc(content)+(isStr?'<span class="cur"></span>':'');
+  document.getElementById('msgs').scrollTop=document.getElementById('msgs').scrollHeight;
 }
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
 
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-// ─── Simulated agent responses ────────────────────────────────
-const MOCK_RESPONSES = {
-  orchestrator: (msg) => {
-    const m = msg.toLowerCase();
-    if (m.includes('pipeline') || m.includes('negócio') || m.includes('deal')) return { agent:'deal', response: getMockResponse('deal', msg) };
-    if (m.includes('pós') || m.includes('churn') || m.includes('cliente') && m.includes('perdendo')) return { agent:'postsales', response: getMockResponse('postsales', msg) };
-    if (m.includes('agenda') || m.includes('tarefa') || m.includes('kpi') || m.includes('ligaç')) return { agent:'agenda', response: getMockResponse('agenda', msg) };
-    if (m.includes('carteira') || m.includes('portfólio') || m.includes('prioridade')) return { agent:'carteira', response: getMockResponse('carteira', msg) };
-    if (m.includes('ranking') || m.includes('ponto') || m.includes('nível')) return { agent:'gamification', response: getMockResponse('gamification', msg) };
-    if (m.includes('equipe') || m.includes('team') || m.includes('forecast')) return { agent:'manager', response: getMockResponse('manager', msg) };
-    return { agent:'feedback', response: getMockResponse('feedback', msg) };
-  },
-  feedback: (msg) => ({ agent:'feedback', response: getMockResponse('feedback', msg) }),
-  carteira: (msg) => ({ agent:'carteira', response: getMockResponse('carteira', msg) }),
-  deal: (msg) => ({ agent:'deal', response: getMockResponse('deal', msg) }),
-  postsales: (msg) => ({ agent:'postsales', response: getMockResponse('postsales', msg) }),
-  manager: (msg) => ({ agent:'manager', response: getMockResponse('manager', msg) }),
-  gamification: (msg) => ({ agent:'gamification', response: getMockResponse('gamification', msg) }),
-  inactivity: (msg) => ({ agent:'inactivity', response: getMockResponse('inactivity', msg) }),
-  agenda: (msg) => ({ agent:'agenda', response: getMockResponse('agenda', msg) }),
+// ── RESPONSES ──
+const RESP={
+  feedback:`📊 Análise de Desempenho — Junho 2026\n\nPanorama da semana:\n\n✅ Pontos fortes:\n• Taxa de conversão: 18.5% (média: 14.2%) — 30% acima!\n• Ticket médio: R$ 42.300 — maior da equipe\n• Follow-ups consistentes, sem gaps > 3 dias\n\n⚠️ Oportunidades:\n• 4 negócios em proposta sem resposta há 5+ dias\n• Reuniões realizadas: 3 (meta: 5)\n\n🎯 Ação prioritária:\nLigue para Empresa ABC — proposta há 7 dias, R$ 85k em jogo. Alta chance se contato hoje! 💪`,
+  carteira:`💼 Carteira — Visão Geral\n\n23 clientes ativos no portfólio:\n\n🔴 Atenção imediata (3):\n1. TechFlow Ltda — 9 dias sem contato, R$ 120k\n2. Grupo Delta — proposta vencida há 3 dias\n3. Serviços Premium — mudança de contato\n\n🟡 Monitoramento (7 clientes): 4–6 dias sem atividade\n✅ Pipeline saudável: 13 clientes\n\n📌 TechFlow — R$ 120k, probabilidade 70% → 45%.\nUm contato hoje pode reverter.`,
+  deal:`🔍 Deal Intelligence — Health Scores\n\n15 negócios analisados:\n\nTechFlow ERP    R$ 120k  🔴 38 — Crítico\nGrupo Delta     R$ 85k   🟡 62 — Atenção\nVarejo Sul      R$ 45k   ✅ 87 — Saudável\nIndústrias BR   R$ 220k  🟡 55 — Atenção\nStartTech       R$ 28k   ✅ 91 — Saudável\n\n🚨 TechFlow: 9 dias sem atividade, prazo em 4 dias.\nNegócios similares ganhos: follow-up no dia 3.\n\nLigue HOJE: "O que precisamos ajustar para avançar?"`,
+  postsales:`🤝 Pós-Vendas — Base de Clientes\n\n18 clientes (últimos 12 meses):\n\n🔴 Risco de Churn (2):\n1. Metalúrgica Sousa — R$ 95k, zero interação\n2. Logística Express — NPS sem resposta, 47 dias\n\n📈 Upsell (3):\n1. Grupo Nexus — cresceu 40% → potencial R$ 60k\n2. Tech Solutions — usa 60% do produto\n3. Comércio União — alto NPS, 2 referrals\n\n✅ Tarefa criada: "Ligar Metalúrgica Sousa" — hoje, Alta`,
+  manager:`📊 Dashboard Gerencial\n\nPipeline — Junho 2026:\n• Total: R$ 2.847.000\n• Meta R$ 3.2M → 89% atingido\n• Projeção semana: R$ 1.12M\n\nAna Silva   R$ 820k  22%  ✅ Acima\nCarlos Melo R$ 640k  15%  🟡 Na meta\nJulia Costa R$ 990k  19%  ✅ Acima\nPedro Lima  R$ 397k  11%  🔴 Abaixo\n\n⚠️ "Proposta": 14 negócios parados > 7 dias (R$ 1.2M)\nPedro Lima precisa de coaching urgente.`,
+  gamification:`🏆 Gamificação\n\nNível: Negociador ⚔️ (4/7)\nXP: 4.280 / 5.000 → próximo: Closer\n\n🔥 Streak: 8 dias | ⚡ +420 XP esta semana\n\nRanking:\n1. 🥇 Julia Costa — 6.840\n2. 🥈 Ana Silva   — 5.120\n3. 🥉 Você        — 4.280 ←\n4.    Carlos Melo — 3.950\n\n🏅 "Semana Perfeita" desbloqueada!\nFaltam 720 XP para ultrapassar Julia 💪`,
+  inactivity:`🚨 Monitor de Inatividade\n\nScan em 147 negócios:\n\n🔴 CRÍTICO (> 7 dias): 8 negócios\n• TechFlow ERP — 9 dias, R$ 120k\n• Indústrias Machado — 8 dias, R$ 340k ⚠️\n• Farmácias Popular — 7 dias, R$ 65k\n\n🟡 ATENÇÃO (4–7 dias): 15 negócios — R$ 780k\n\nValor crítico total: R$ 1.24M\n3 alertas WhatsApp enviados.`,
+  agenda:`📅 Agenda — ${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}\n\nKPIs: 📞 7/10  🤝 2/3  🏆 1 fechamento\n\nTarefas pendentes:\n1. 🔴 Follow-up TechFlow — R$ 120k [URGENTE]\n2. 🟠 Enviar contrato StartTech\n3. 🟡 Agendar demo Varejo Sul\n4. 🟡 Ligar Metalúrgica Sousa\n5. 🟢 Atualizar CRM\n\nComece pelo #1 — maior valor em risco.`,
 };
-
-function getMockResponse(agentKey, msg) {
-  const responses = {
-    feedback: `📊 **Análise do seu desempenho — Junho 2026**
-
-Aqui está seu panorama da semana, ${msg.includes('nome') ? 'vendedor' : 'vendedor'}:
-
-**✅ Pontos fortes:**
-- Taxa de conversão: **18.5%** (média da equipe: 14.2%) — você está 30% acima!
-- Ticket médio: **R$ 42.300** — o maior da equipe
-- Cadência de follow-up: consistente, sem gaps > 3 dias
-
-**⚠️ Oportunidades de melhoria:**
-- 4 negócios em **proposta** sem resposta há mais de 5 dias
-- Reuniões realizadas esta semana: 3 (meta: 5)
-- 2 negócios prestes a vencer o prazo esta semana
-
-**🎯 Ação prioritária para hoje:**
-Ligue agora para **Empresa ABC** — proposta enviada há 7 dias sem retorno, valor R$ 85.000. Probabilidade de fechar: alta se reativar contato ainda hoje.
-
-Você está no caminho certo. Foco nos follow-ups e essa semana fecha forte! 💪`,
-
-    carteira: `💼 **Carteira de Clientes — Visão Geral**
-
-Analisando seus **23 clientes ativos** no portfólio:
-
-**🔴 Atenção imediata (3 clientes):**
-1. **TechFlow Ltda** — 9 dias sem contato, negócio de R$ 120k em risco
-2. **Grupo Delta** — proposta vencida há 3 dias, decisor não respondeu
-3. **Serviços Premium** — mudança de contato, requalificar necessidade
-
-**🟡 Monitoramento (7 clientes):**
-- 4–6 dias sem atividade, agendar contato esta semana
-
-**✅ Pipeline saudável (13 clientes):**
-- Bem distribuídos nas etapas, dentro do prazo
-
-**📌 Top prioridade para hoje:**
-Ligue para **TechFlow** — valor R$ 120k, probabilidade caiu de 70% para 45% após silêncio. Um contato hoje pode reverter.
-
-Quer que eu gere a lista completa com sugestão de abordagem para cada um?`,
-
-    deal: `🔍 **Deal Intelligence — Health Score dos Negócios**
-
-Analisando seus **15 negócios ativos** no pipeline:
-
-**Health Scores:**
-| Negócio | Valor | Etapa | Score | Status |
-|---|---|---|---|---|
-| TechFlow — ERP | R$ 120k | Proposta | 🔴 38 | Crítico |
-| Grupo Delta | R$ 85k | Negociação | 🟡 62 | Atenção |
-| Varejo Sul | R$ 45k | Qualificação | ✅ 87 | Saudável |
-| Indústrias BR | R$ 220k | Proposta | 🟡 55 | Atenção |
-| StartTech | R$ 28k | Fechamento | ✅ 91 | Saudável |
-
-**🚨 TechFlow — Análise completa:**
-- 9 dias sem atividade (-27 pontos de health)
-- Proposta enviada, nenhuma interação posterior
-- Prazo de fechamento: daqui 4 dias
-- Comparando com negócios similares ganhos: os que fecharam tiveram **ligação de follow-up no dia 3**
-
-**Próximo passo recomendado:**
-Ligue HOJE. Script sugerido: *"Olá [nome], gostaria de entender se a proposta atende às necessidades de vocês e o que precisamos ajustar para avançar."*`,
-
-    postsales: `🤝 **Análise de Pós-Vendas — Base de Clientes**
-
-Monitorando **18 clientes** que fecharam negócio nos últimos 12 meses:
-
-**🔴 Risco de Churn (2 clientes):**
-1. **Metalúrgica Sousa** — fechou R$ 95k há 8 meses, zero interação pós-venda
-2. **Logística Express** — NPS não respondido, último contato há 47 dias
-
-**📈 Oportunidades de Upsell (3 clientes):**
-1. **Grupo Nexus** — cliente satisfeito, cresceu 40% desde a compra → potencial R$ 60k
-2. **Tech Solutions** — usa só 60% do produto, expansão natural de licenças
-3. **Comércio União** — referenciou 2 novos leads, alto NPS → momento ideal para expansão
-
-**⏰ Reativação necessária (4 clientes):**
-- Sem interação há 90+ dias, ainda com potencial de renovação
-
-**Ação criada automaticamente:**
-✅ Tarefa "Ligar para Metalúrgica Sousa" criada para hoje, prioridade Alta — clique para ver na agenda.`,
-
-    manager: `📊 **Visão da Equipe — Dashboard Gerencial**
-
-**Pipeline consolidado — Junho 2026:**
-- Total em negociação: **R$ 2.847.000**
-- Meta do mês: R$ 3.200.000 (89% atingido)
-- Projeção de fechamento: **R$ 1.12M** esta semana
-
-**Performance individual:**
-| Vendedor | Negócios | Pipeline | Taxa Conv. | Status |
-|---|---|---|---|---|
-| Ana Silva | 18 | R$ 820k | 22% | ✅ Acima |
-| Carlos Melo | 12 | R$ 640k | 15% | 🟡 Na meta |
-| Julia Costa | 21 | R$ 990k | 19% | ✅ Acima |
-| Pedro Lima | 8 | R$ 397k | 11% | 🔴 Abaixo |
-
-**⚠️ Gargalos identificados:**
-1. **Etapa "Proposta"** tem 14 negócios parados há > 7 dias (R$ 1.2M represado)
-2. **Pedro Lima** precisa de suporte — taxa de conversão abaixo da média
-3. 3 negócios com valor > R$ 150k sem atividade há 5+ dias
-
-**Recomendação:** Reunião de pipeline com Pedro amanhã + revisar as propostas paradas.`,
-
-    gamification: `🏆 **Seu Perfil de Gamificação**
-
-**Nível atual: Negociador** ⚔️ (Nível 4 de 7)
-XP: **4.280 / 5.000** para o próximo nível (Closer)
-
-**Progresso semanal:**
-- 🔥 Streak: **8 dias consecutivos** de atividade
-- ⚡ XP ganho esta semana: **+420 pts**
-- 📞 Ligações: 23 (+10 pts cada = 230)
-- 🤝 Reuniões: 4 (+20 pts cada = 80)
-- 🏆 Negócios fechados: 2 (+200 pts cada = 400)
-
-**Ranking atual — Top 5:**
-1. 🥇 Julia Costa — 6.840 pts
-2. 🥈 Ana Silva — 5.120 pts
-3. 🥉 **Você** — 4.280 pts ← aqui!
-4. Carlos Melo — 3.950 pts
-5. Pedro Lima — 2.780 pts
-
-**Conquista desbloqueada: 🔥 "Semana Perfeita"** — 5+ ligações por dia, 5 dias seguidos!
-
-Faltam apenas **720 XP** para alcançar Julia. Feche mais 2 negócios esta semana e você pode virar o jogo! 💪`,
-
-    inactivity: `🚨 **Varredura de Inatividade — Alerta**
-
-Scan realizado em **147 negócios ativos** na empresa:
-
-**🔴 CRÍTICO (inatividade > 7 dias): 8 negócios**
-- TechFlow ERP — 9 dias, R$ 120k
-- Indústrias Machado — 8 dias, R$ 340k ⚠️ ALTO VALOR
-- Farmácias Popular — 7 dias, R$ 65k
-- + 5 negócios adicionais
-
-**🟡 ATENÇÃO (inatividade 4–7 dias): 15 negócios**
-- 15 negócios no total, R$ 780k em risco moderado
-
-**📊 Estatísticas:**
-- Inatividade média do portfólio: 3.2 dias
-- Negócios no prazo: 124 (84%)
-- Valor total em risco crítico: **R$ 1.24M**
-
-**Alertas WhatsApp enviados:** 3 mensagens para gestores sobre os negócios críticos de alto valor.
-
-Quer que eu crie tarefas automáticas de follow-up para os 8 negócios críticos?`,
-
-    agenda: `📅 **Sua Agenda — ${new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'})}**
-
-**KPIs do dia (atualizado agora):**
-- 📞 Ligações: **7 / 10** (meta diária)
-- 🤝 Reuniões: **2 / 3**
-- 🏢 Empresas atingidas: **5 / 7**
-- 💼 Negócios tratados: **9**
-- 🏆 Vendas fechadas: **1**
-
-**Tarefas pendentes para hoje:**
-1. 🔴 **[URGENTE]** Follow-up TechFlow — proposta há 9 dias (R$ 120k)
-2. 🟠 Enviar contrato para StartTech — negócio em fechamento
-3. 🟡 Agendar demo para Varejo Sul (lead quente)
-4. 🟡 Ligar para Metalúrgica Sousa (pós-venda)
-5. 🟢 Atualizar notas no CRM dos negócios da manhã
-
-**Sugestão de prioridade:**
-Comece pelo item 1 (TechFlow) — maior valor em risco. Depois item 2 para não perder o momentum do StartTech.
-
-Deseja criar nova tarefa ou marcar alguma como concluída?`,
-  };
-
-  return responses[agentKey] || responses.feedback;
-}
-
-// ─── Simulate tools ──────────────────────────────────────────
-const TOOL_CALLS = {
-  feedback: [
-    { delay: 400, call: 'get_my_metrics', label: 'Buscando métricas do vendedor…' },
-    { delay: 900, result: 'get_my_metrics', label: '✓ Métricas carregadas (30 dias)' },
-    { delay: 1100, call: 'get_my_pipeline', label: 'Analisando pipeline ativo…' },
-    { delay: 1800, result: 'get_my_pipeline', label: '✓ 15 negócios analisados' },
-    { delay: 2000, call: 'get_won_deals_patterns', label: 'Verificando padrões de fechamento…' },
-    { delay: 2700, result: 'get_won_deals_patterns', label: '✓ Padrões identificados' },
-  ],
-  deal: [
-    { delay: 400, call: 'get_active_deals_with_health', label: 'Calculando health scores…' },
-    { delay: 1200, result: 'get_active_deals_with_health', label: '✓ 15 negócios analisados com scores' },
-    { delay: 1400, call: 'compare_to_won_deals', label: 'Comparando com negócios ganhos…' },
-    { delay: 2100, result: 'compare_to_won_deals', label: '✓ Análise comparativa concluída' },
-  ],
-  postsales: [
-    { delay: 400, call: 'get_churn_risks', label: 'Detectando riscos de churn…' },
-    { delay: 1100, result: 'get_churn_risks', label: '✓ 2 clientes em risco crítico' },
-    { delay: 1300, call: 'get_upsell_opportunities', label: 'Mapeando oportunidades de upsell…' },
-    { delay: 2000, result: 'get_upsell_opportunities', label: '✓ 3 oportunidades identificadas' },
-  ],
-  carteira: [
-    { delay: 400, call: 'get_overdue_deals', label: 'Verificando negócios atrasados…' },
-    { delay: 1000, result: 'get_overdue_deals', label: '✓ 3 negócios requerem atenção' },
-    { delay: 1200, call: 'generate_priority_list', label: 'Gerando lista de prioridades…' },
-    { delay: 2000, result: 'generate_priority_list', label: '✓ Lista ordenada por impacto' },
-  ],
-  manager: [
-    { delay: 400, call: 'get_pipeline_overview', label: 'Carregando visão do pipeline…' },
-    { delay: 1100, result: 'get_pipeline_overview', label: '✓ Pipeline consolidado' },
-    { delay: 1300, call: 'get_team_performance', label: 'Analisando performance da equipe…' },
-    { delay: 2200, result: 'get_team_performance', label: '✓ 5 vendedores analisados' },
-    { delay: 2400, call: 'get_bottlenecks', label: 'Identificando gargalos…' },
-    { delay: 3000, result: 'get_bottlenecks', label: '✓ 2 gargalos críticos detectados' },
-  ],
-  gamification: [
-    { delay: 400, call: 'get_leaderboard', label: 'Buscando ranking da equipe…' },
-    { delay: 900, result: 'get_leaderboard', label: '✓ Top 5 carregado' },
-    { delay: 1100, call: 'get_my_achievements', label: 'Carregando conquistas…' },
-    { delay: 1600, result: 'get_my_achievements', label: '✓ Perfil de gamificação carregado' },
-  ],
-  inactivity: [
-    { delay: 400, call: 'scan_inactivity', label: 'Varrendo inatividade (147 negócios)…' },
-    { delay: 1500, result: 'scan_inactivity', label: '✓ Scan concluído — 8 críticos' },
-    { delay: 1700, call: 'get_high_value_at_risk', label: 'Analisando negócios de alto valor…' },
-    { delay: 2400, result: 'get_high_value_at_risk', label: '✓ R$ 1.24M em risco identificados' },
-  ],
-  agenda: [
-    { delay: 400, call: 'get_today_kpis', label: 'Calculando KPIs de hoje…' },
-    { delay: 900, result: 'get_today_kpis', label: '✓ KPIs do dia calculados' },
-    { delay: 1100, call: 'get_today_agenda', label: 'Carregando agenda do dia…' },
-    { delay: 1700, result: 'get_today_agenda', label: '✓ 5 tarefas pendentes carregadas' },
-  ],
+const TOOLS={
+  feedback:[{d:400,t:'tool_call',tx:'Buscando métricas…'},{d:900,t:'tool_result',tx:'✓ 30 dias carregados'},{d:1100,t:'tool_call',tx:'Analisando pipeline…'},{d:1800,t:'tool_result',tx:'✓ 15 negócios'},{d:2000,t:'tool_call',tx:'Padrões de fechamento…'},{d:2700,t:'tool_result',tx:'✓ Identificados'}],
+  deal:[{d:400,t:'tool_call',tx:'Calculando health scores…'},{d:1200,t:'tool_result',tx:'✓ 15 com scores'},{d:1400,t:'tool_call',tx:'Comparando ganhos…'},{d:2100,t:'tool_result',tx:'✓ Análise pronta'}],
+  postsales:[{d:400,t:'tool_call',tx:'Detectando churn…'},{d:1100,t:'tool_result',tx:'✓ 2 críticos'},{d:1300,t:'tool_call',tx:'Mapeando upsell…'},{d:2000,t:'tool_result',tx:'✓ 3 oportunidades'}],
+  carteira:[{d:400,t:'tool_call',tx:'Negócios atrasados…'},{d:1000,t:'tool_result',tx:'✓ 3 requerem atenção'},{d:1200,t:'tool_call',tx:'Prioridades…'},{d:2000,t:'tool_result',tx:'✓ Lista por impacto'}],
+  manager:[{d:400,t:'tool_call',tx:'Pipeline…'},{d:1100,t:'tool_result',tx:'✓ Consolidado'},{d:1300,t:'tool_call',tx:'Performance…'},{d:2200,t:'tool_result',tx:'✓ 5 analisados'},{d:2400,t:'tool_call',tx:'Gargalos…'},{d:3000,t:'tool_result',tx:'✓ 2 detectados'}],
+  gamification:[{d:400,t:'tool_call',tx:'Ranking…'},{d:900,t:'tool_result',tx:'✓ Top 5'},{d:1100,t:'tool_call',tx:'Conquistas…'},{d:1600,t:'tool_result',tx:'✓ Perfil'}],
+  inactivity:[{d:400,t:'tool_call',tx:'Varrendo 147…'},{d:1500,t:'tool_result',tx:'✓ 8 críticos'},{d:1700,t:'tool_call',tx:'Alto valor…'},{d:2400,t:'tool_result',tx:'✓ R$ 1.24M'}],
+  agenda:[{d:400,t:'tool_call',tx:'KPIs…'},{d:900,t:'tool_result',tx:'✓ Calculados'},{d:1100,t:'tool_call',tx:'Agenda…'},{d:1700,t:'tool_result',tx:'✓ 5 tarefas'}],
 };
-
-// ─── Send message ────────────────────────────────────────────
-function sendMessage() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text || isStreaming) return;
-  input.value = '';
-
-  isStreaming = true;
-  document.getElementById('send-btn').disabled = true;
-  document.getElementById('status-badge').textContent = 'Processando…';
-
-  // Add user message
-  addMessage('user', text, null, false);
-  addActivity('user', `Mensagem enviada para ${AGENTS[selected].label}`);
-
-  // Determine routing
-  const sim = MOCK_RESPONSES[selected](text);
-  const targetAgent = selected === 'orchestrator' ? sim.agent : selected;
-
-  let msgId;
-  const tools = TOOL_CALLS[targetAgent] || TOOL_CALLS.feedback;
-  const totalTime = tools.length > 0 ? Math.max(...tools.map(t => t.delay)) + 800 : 1000;
-
-  // Phase 1: routing (if orchestrator)
-  if (selected === 'orchestrator') {
-    addActivity('routing', 'Orquestrador classificando mensagem…', 'orchestrator');
-    setActiveNode('orchestrator', true); // Highlight orchestrator itself via inner pulse
-    const orchInner = document.getElementById('inner-orchestrator');
-    if (orchInner) orchInner.setAttribute('fill-opacity','0.5');
-
-    setTimeout(() => {
-      addActivity('routed', `Roteado → ${AGENTS[targetAgent].label}`, targetAgent);
-      setActiveNode('orchestrator', false);
-      if (orchInner) orchInner.setAttribute('fill-opacity','0.22');
-      setActiveNode(targetAgent, true);
-
-      // Create assistant bubble
-      msgId = addMessage('assistant', '', targetAgent, true);
-
-      // Simulate tool calls
-      simulateTools(tools, targetAgent, msgId, sim.response, totalTime);
-    }, 600);
-  } else {
-    setActiveNode(targetAgent, true);
-    msgId = addMessage('assistant', '', targetAgent, true);
-    addActivity('thinking', 'Processando consulta…', targetAgent);
-    simulateTools(tools, targetAgent, msgId, sim.response, totalTime);
-  }
+function route(msg){
+  const m=msg.toLowerCase();
+  if(/deal|negócio|score|saúde/.test(m))return'deal';
+  if(/churn|pós|upsell|reter/.test(m))return'postsales';
+  if(/agenda|tarefa|kpi|hoje/.test(m))return'agenda';
+  if(/carteira|portfólio|cliente/.test(m))return'carteira';
+  if(/ranking|ponto|xp|gamif/.test(m))return'gamification';
+  if(/equipe|team|forecast|gestor/.test(m))return'manager';
+  if(/inativ|alerta|parado/.test(m))return'inactivity';
+  return'feedback';
 }
 
-function simulateTools(tools, agent, msgId, finalResponse, totalTime) {
-  tools.forEach(t => {
-    setTimeout(() => {
-      if (t.call) addActivity('tool_call', t.label, agent);
-      if (t.result) addActivity('tool_result', t.label, agent);
-    }, t.delay);
-  });
-
-  // Start streaming response after tools
-  const streamStart = totalTime;
-  setTimeout(() => {
-    addActivity('delta', 'Gerando resposta…', agent);
-    streamText(msgId, finalResponse, 0, agent);
-  }, streamStart);
+// ── SEND ──
+function send(){
+  const inp=document.getElementById('inp'),text=inp.value.trim();
+  if(!text||streaming)return;inp.value='';streaming=true;
+  document.getElementById('sbtn').disabled=true;
+  addMsg('user',text,null,false);addLog('user',`Para ${A[sel].label}`);
+  const isOrch=sel==='orchestrator',target=isOrch?route(text):sel;
+  const tools=TOOLS[target]||TOOLS.feedback,maxD=tools.length?Math.max(...tools.map(t=>t.d)):500;
+  let mId;
+  if(isOrch){
+    addLog('routing','Orquestrador classificando…','orchestrator');
+    setTimeout(()=>{addLog('routed',`Roteado → ${A[target].label}`,target);selectAgent(target);setConn(target,true);mId=addMsg('bot','',target,true);runTools(tools,target,mId,RESP[target]||RESP.feedback,maxD);},500);
+  } else {setConn(target,true);mId=addMsg('bot','',target,true);runTools(tools,target,mId,RESP[target]||RESP.feedback,maxD);}
+}
+function runTools(tools,agent,mId,resp,maxD){
+  tools.forEach(t=>setTimeout(()=>addLog(t.t,t.tx,agent),t.d));
+  setTimeout(()=>{addLog('delta','Gerando resposta…',agent);stream(mId,resp,0,agent);},maxD+400);
+}
+function stream(mId,text,i,agent){
+  const next=Math.min(i+Math.floor(Math.random()*4)+1,text.length);
+  updMsg(mId,text.slice(0,next),next<text.length);
+  if(next<text.length)setTimeout(()=>stream(mId,text,next,agent),Math.random()*14+7);
+  else{streaming=false;document.getElementById('sbtn').disabled=false;setConn(agent,false);addLog('done','Resposta concluída',agent);}
 }
 
-function streamText(msgId, text, idx, agent) {
-  // Stream in chunks for natural feel
-  const chunkSize = Math.floor(Math.random() * 4) + 1;
-  const nextIdx = Math.min(idx + chunkSize, text.length);
-  const partial = text.slice(0, nextIdx);
-
-  updateMessage(msgId, partial, nextIdx < text.length);
-
-  if (nextIdx < text.length) {
-    const delay = Math.random() * 18 + 8;
-    setTimeout(() => streamText(msgId, text, nextIdx, agent), delay);
-  } else {
-    // Done
-    isStreaming = false;
-    document.getElementById('send-btn').disabled = false;
-    document.getElementById('status-badge').textContent = 'Aguardando';
-    setActiveNode(agent, false);
-    addActivity('done', 'Resposta concluída', agent);
-  }
-}
-
-// ─── Quick prompts ────────────────────────────────────────────
-const QUICK = [
-  { text:'Como está meu pipeline hoje?', agent:'feedback' },
-  { text:'Analise negócios em risco', agent:'deal' },
-  { text:'Clientes que posso perder?', agent:'postsales' },
-  { text:'Minha agenda do dia', agent:'agenda' },
-];
-
-function buildQuickPrompts() {
-  const container = document.getElementById('quick-prompts');
-  QUICK.forEach(q => {
-    const cfg = AGENTS[q.agent];
-    const btn = document.createElement('button');
-    btn.className = 'qp';
-    btn.textContent = q.text;
-    btn.style.cssText = `color:${cfg.color};border-color:${cfg.color}50;background:${cfg.color}12`;
-    btn.onclick = () => {
-      selectAgent(q.agent);
-      setTimeout(() => {
-        document.getElementById('chat-input').value = q.text;
-        sendMessage();
-      }, 80);
-    };
-    container.appendChild(btn);
-  });
-}
-
-// ─── Input keyboard ──────────────────────────────────────────
-document.getElementById('chat-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+// ── QUICK PROMPTS ──
+[{text:'Como está meu pipeline?',a:'feedback'},{text:'Negócios em risco',a:'deal'},{text:'Clientes que posso perder?',a:'postsales'},{text:'Minha agenda hoje',a:'agenda'}].forEach(q=>{
+  const cfg=A[q.a],btn=document.createElement('button');
+  btn.className='qb';btn.textContent=q.text;btn.style.cssText=`color:${cfg.color};border-color:${cfg.color}50;background:${cfg.color}10`;
+  btn.onclick=()=>{selectAgent(q.a);setTimeout(()=>{document.getElementById('inp').value=q.text;send();},80);};
+  document.getElementById('qbs').appendChild(btn);
 });
 
-// ─── Init ────────────────────────────────────────────────────
-buildGraph();
-buildQuickPrompts();
+// ── RESIZE + LOOP ──
+function resize(){
+  cv.width=innerWidth;cv.height=innerHeight;
+  const g=document.getElementById('gal');GW=g.offsetWidth;GH=g.offsetHeight;CX=GW*.5;CY=GH*.5;
+  const sw=document.getElementById('sw');if(sw){sw.style.left=CX+'px';sw.style.top=CY+'px';}
+  buildOrbits();initStars();
+}
+function loop(t){
+  requestAnimationFrame(loop);drawBg(t);if(!GW)return;
+  SPOKES.forEach(k=>{ang[k]+=A[k].speed;const p=getPPos(k),el=document.getElementById(`pw-${k}`);if(el){el.style.left=p.x+'px';el.style.top=p.y+'px';}});
+  const sw=document.getElementById('sw');if(sw){sw.style.left=CX+(mx-.5)*9+'px';sw.style.top=CY+(my-.5)*6+'px';}
+  SPOKES.forEach(k=>{const oe=document.getElementById(`oe-${k}`);if(oe){oe.setAttribute('cx',CX+(mx-.5)*5);oe.setAttribute('cy',CY+(my-.5)*3);}});
+}
+document.addEventListener('mousemove',e=>{mx=e.clientX/innerWidth;my=e.clientY/innerHeight;});
+document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+window.addEventListener('resize',resize);
+initStars();setTimeout(()=>{resize();buildPlanets();requestAnimationFrame(loop);},50);
 </script>
 </body>
 </html>
