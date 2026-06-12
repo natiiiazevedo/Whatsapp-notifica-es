@@ -15,10 +15,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     const { email, password } = loginSchema.parse(request.body);
 
     const res = await fastify.db.query<User & { password_hash: string }>(
-      `SELECT u.*, uc.password_hash
-       FROM users u
-       JOIN user_credentials uc ON uc.user_id = u.id
-       WHERE u.email = $1 AND u.active = true`,
+      `SELECT * FROM users WHERE email = $1 AND active = true`,
       [email]
     );
 

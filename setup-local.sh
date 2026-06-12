@@ -76,22 +76,28 @@ echo -e "\n  ${G}✓${N} PostgreSQL pronto"
 echo -e "\n${B}[5/5] Criando usuário demo...${N}"
 
 PGPASSWORD=postgres psql -h localhost -U postgres -d sales_platform 2>/dev/null <<'SQL' || true
+-- Garante colunas adicionais caso a migração ainda não rodou
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'pro';
+ALTER TABLE users     ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
 INSERT INTO companies (id, name, plan, settings)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Demo Company', 'pro', '{}')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
--- Senha: demo123 (bcrypt hash)
+-- Senha: demo123 (SHA-256)
 INSERT INTO users (id, company_id, email, password_hash, name, role, active, settings)
 VALUES
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000001',
+  ('00000000-0000-0000-0000-000000000010',
+   '00000000-0000-0000-0000-000000000001',
    'gestor@demo.com',
-   '$2b$10$K7L1OIAo5ZzMNSMHn7mJueINi01fhL5naTYQpgGMCOvpOLF2sM4xG',
+   'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791',
    'Gestor Demo', 'manager', true, '{}'),
-  (gen_random_uuid(), '00000000-0000-0000-0000-000000000001',
+  ('00000000-0000-0000-0000-000000000011',
+   '00000000-0000-0000-0000-000000000001',
    'vendedor@demo.com',
-   '$2b$10$K7L1OIAo5ZzMNSMHn7mJueINi01fhL5naTYQpgGMCOvpOLF2sM4xG',
+   'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791',
    'Vendedor Demo', 'salesperson', true, '{}')
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 SQL
 
 echo -e "  ${G}✓${N} Usuários demo criados"
