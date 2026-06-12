@@ -85,9 +85,7 @@ CREATE TABLE deals (
   expected_close_date DATE,
   closed_date         DATE,
   last_activity_at    TIMESTAMPTZ,
-  days_without_activity INTEGER GENERATED ALWAYS AS (
-    EXTRACT(DAY FROM NOW() - last_activity_at)::INTEGER
-  ) STORED,
+  days_without_activity INTEGER DEFAULT 0,
   metadata            JSONB NOT NULL DEFAULT '{}',
   bitrix_data         JSONB NOT NULL DEFAULT '{}',
   synced_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
